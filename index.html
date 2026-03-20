@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家系図ジェネレーター(顔プレビュー付き)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --container-bg: #2c2c3e;
+            --card-bg: #3a3a50;
+            --primary-accent: #7f5af0;
+            --champion-accent: #ffc639;
+            --text-color: #e0e0e0;
+            --text-muted: #9a9a9a;
+            --line-color: #3ce4c8;
+            --line-offset-y: 240px; 
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 25px;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 95%;
+            background: var(--container-bg);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 { 
+            text-align: center; 
+            color: #fff; 
+            margin-bottom: 25px; 
+            font-weight: 700;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+        }
+
+        textarea {
+            width: 100%; min-height: 120px; padding: 15px; border: 2px solid #5a4a9c;
+            border-radius: 8px; font-size: 16px; margin-bottom: 20px; background-color: var(--card-bg);
+            color: var(--text-color); resize: none; box-sizing: border-box;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        textarea:focus { 
+            outline: none; 
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 10px rgba(127, 90, 240, 0.5);
+        }
+
+        .button-group { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 10px; 
+        }
+
+        button {
+            padding: 15px; border-radius: 8px; font-weight: 700; cursor: pointer;
+            border: none; color: #fff; font-size: 16px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        button:hover { transform: translateY(-2px); }
+
+        #generate-btn { 
+            background: linear-gradient(90deg, #7f5af0, #a85af0); 
+            box-shadow: 0 4px 15px rgba(127, 90, 240, 0.3);
+        }
+        #generate-btn:hover {
+            box-shadow: 0 6px 20px rgba(127, 90, 240, 0.5);
+        }
+
+        #save-btn { background: linear-gradient(90deg, #3ca1c3, #3ce4c8); box-shadow: 0 4px 15px rgba(60, 228, 200, 0.2); }
+        #clear-btn { background: linear-gradient(90deg, #4b4b63, #626288); box-shadow: 0 4px 15px rgba(98, 98, 136, 0.2); }
+        
+        #collapse-all-btn { 
+            background: linear-gradient(90deg, #f08a5a, #f96666); 
+            box-shadow: 0 4px 15px rgba(240, 138, 90, 0.2); 
+        }
+
+        .bracket-container {
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            margin-top: 40px; overflow-x: auto; padding: 20px; 
+            background-color: var(--container-bg);
+            position: relative; 
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .round {
+            display: flex; flex-direction: row; justify-content: center; align-items: flex-start;
+            margin-top: var(--line-offset-y); width: 100%;
+        }
+        .round:first-child { margin-top: 0; }
+
+        .player-card {
+            border: 2px solid var(--primary-accent); background-color: var(--card-bg); padding: 12px;
+            margin: 0 40px; border-radius: 8px; text-align: center; width: 220px;
+            color: var(--text-color); word-wrap: break-word; box-sizing: border-box; flex-shrink: 0;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, opacity 0.3s ease;
+            box-shadow: 0 0 8px rgba(127, 90, 240, 0.3);
+            position: relative; 
+        }
+        .player-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 8px 25px rgba(127, 90, 240, 0.5);
+        }
+
+        .round.is-dense, .round.is-crowded, .round.is-super-crowded { justify-content: space-around; }
+        .round.is-dense .player-card {
+            width: auto; flex-shrink: 1; flex-grow: 1; flex-basis: 0; min-width: 140px;
+            max-width: 200px; margin: 0 15px; padding: 10px; font-size: 0.95em;
+        }
+        .round.is-crowded .player-card {
+            width: auto; flex-shrink: 1; flex-grow: 1; flex-basis: 0; min-width: 100px;
+            max-width: 180px; margin: 0 5px; padding: 8px; font-size: 0.9em;
+        }
+        .round.is-super-crowded { margin-top: calc(var(--line-offset-y) + 80px); }
+        .round.is-super-crowded .player-card {
+            width: auto; flex-shrink: 1; flex-grow: 1; flex-basis: 0; min-width: 75px;
+            max-width: 120px; margin: 0 2px; padding: 5px; font-size: 0.8em;
+        }
+        
+        .player-card .name { font-weight: bold; font-size: 1.1em; margin-bottom: 8px; }
+
+        .champion-card {
+            border-color: var(--champion-accent);
+            box-shadow: 0 0 15px rgba(255, 198, 57, 0.4);
+        }
+        .champion-card:hover {
+            box-shadow: 0 8px 30px rgba(255, 198, 57, 0.6);
+        }
+        .champion-card .status {
+            margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--text-muted); font-size: 15px;
+            text-align: left; white-space: pre-wrap; color: var(--text-color);
+        }
+        
+        .relation-info {
+            font-size: 0.9em;
+            color: var(--text-muted);
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #555;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .relation-info div {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 190px; 
+        }
+        .round.is-dense .relation-info div { max-width: 180px; }
+        .round.is-crowded .relation-info div { max-width: 150px; }
+        .round.is-super-crowded .relation-info div { max-width: 100px; }
+
+        .collapsible {
+            cursor: pointer;
+        }
+        .collapsible:not(.highlight-focus):hover {
+            outline: 2px solid var(--line-color);
+            outline-offset: 2px;
+        }
+        .collapsed {
+            display: none !important;
+        }
+        
+        .player-card.pair-first {
+            border-color: #f96666 !important; /* ペアの先 (赤) */
+        }
+        .player-card.pair-second {
+            border-color: #66a9f9 !important; /* ペアの後 (青) */
+        }
+        .player-card.champion-card {
+            border-color: var(--champion-accent) !important;
+        }
+
+        #bracket-lines { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            pointer-events: none; 
+        }
+        
+        #bracket-lines path { 
+            stroke: var(--line-color); 
+            stroke-width: 1.5px; 
+            stroke-opacity: 0.15; 
+            fill: none;
+            transition: stroke-width 0.3s ease, stroke-opacity 0.3s ease;
+        }
+        
+        .bracket-container.highlight-active .player-card {
+            opacity: 0.2; 
+        }
+        .bracket-container.highlight-active .player-card.highlight-focus {
+            opacity: 1; 
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.4);
+        }
+        .bracket-container.highlight-active #bracket-lines path.highlight-focus {
+            stroke-opacity: 1; 
+            stroke-width: 3px; 
+            filter: drop-shadow(0 0 3px var(--line-color));
+        }
+
+
+        .screenshot-mode h1,
+        .screenshot-mode textarea:focus,
+        .screenshot-mode #generate-btn,
+        .screenshot-mode .player-card {
+            text-shadow: none !important;
+            box-shadow: none !important;
+            opacity: 1 !important; 
+        }
+        
+        .screenshot-mode .player-card.pair-first,
+        .screenshot-mode .player-card.pair-second {
+            border-color: var(--primary-accent) !important;
+        }
+        .screenshot-mode .player-card.champion-card {
+            border-color: var(--champion-accent) !important;
+        }
+        
+        .screenshot-mode #bracket-lines path {
+            filter: none !important;
+            stroke-opacity: 1 !important; 
+            stroke-width: 2.5px !important; 
+        }
+
+        .face-preview-container { width: 200px; height: 200px; position: relative; background-color: transparent; margin: 0 auto 10px auto; border-radius: 16px; overflow: hidden; }
+        .face-preview-container .part-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-size: contain; background-repeat: no-repeat; background-position: center; }
+        .preview-kami-rinkaku { z-index: 2; transform: scale(1) translate(0px, 0px) rotate(0deg); }
+        .preview-hoo { z-index: 3; transform: scale(0.7) translate(5px, 45px) rotate(0deg); }
+        .preview-me { z-index: 4; transform: scale(0.65) translate(3px, 0px) rotate(0deg); }
+        .preview-mayu { z-index: 5; transform: scale(0.55) translate(0px, -57px) rotate(0deg); }
+        .preview-hana { z-index: 6; transform: scale(0.3) translate(-10px, 60px) rotate(0deg); }
+        .preview-kuchi { z-index: 7; transform: scale(0.6) translate(5px, 75px) rotate(0deg); }
+        .color-info-container { display: flex; flex-direction: column; align-items: center; gap: 5px; margin-bottom: 12px; }
+        .color-info-item { display: flex; align-items: center; justify-content: center; font-size: 1em; color: var(--text-color); }
+        .color-preview-box { width: 22px; height: 22px; border: 1px solid var(--text-muted); border-radius: 4px; margin-left: 8px; background-size: cover; background-position: center; }
+        .custom-color-palette { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; margin-bottom: 15px; padding-top: 5px; }
+        .palette-item { display: flex; align-items: center; font-size: 0.9em; }
+        .palette-color-box { width: 18px; height: 18px; border: 1px solid var(--text-muted); border-radius: 3px; margin-right: 5px; }
+        .pattern-rank { background-color: var(--bg-color); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--primary-accent); font-weight: bold; color: var(--text-color); }
+        .qr-code { width: 160px; height: 160px; margin: 10px auto 0; background-color: #ffffff; border-radius: 4px; padding: 5px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; cursor: pointer; }
+        .round.is-dense .qr-code { width: 100%; height: auto; aspect-ratio: 1 / 1; max-width: 140px; }
+        .round.is-crowded .qr-code { width: 100%; height: auto; aspect-ratio: 1 / 1; max-width: 120px; }
+        .round.is-super-crowded .qr-code { width: 100%; height: auto; aspect-ratio: 1 / 1; max-width: 90px; }
+        .round.is-dense .qr-code > *, .round.is-crowded .qr-code > *, .round.is-super-crowded .qr-code > * { width: 100% !important; height: 100% !important; }
+        .rsid-text { color: #ccc; font-size: 14px; font-family: monospace; margin-top: 8px; word-break: break-all; }
+        #error-message { color: #f96666; text-align: center; margin-top: 15px; display: none; font-weight: 700; }
+        .modal-overlay { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.85); justify-content: center; align-items: center; animation: modalFadeIn 0.3s ease; }
+        @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        #modal-content { position: relative; }
+        #close-modal { position: absolute; top: -15px; right: -15px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer; transition: color 0.2s; }
+        #close-modal:hover { color: #bbb; }
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>家系図ジェネレーター(顔プレビュー付き)</h1>
+    <textarea id="rsid-input" placeholder="RSIDを貼り付けてください"></textarea>
+    <div class="button-group">
+        <button id="generate-btn">家系図を生成</button>
+        <button id="save-btn">画像として保存</button>
+        <button id="clear-btn">削除</button>
+        <button id="collapse-all-btn">すべて折りたたむ</button>
+    </div>
+    <div style="margin-top: 20px; display: flex; gap: 10px; align-items: center; background-color: var(--card-bg); padding: 15px; border-radius: 8px;">
+        <label for="player-id-input" style="font-weight: 700;">プレイヤーID:</label>
+        <input type="text" id="player-id-input" placeholder="例: cc0db7" maxlength="6" style="padding: 10px; border-radius: 4px; border: 1px solid var(--primary-accent); background: var(--bg-color); color: var(--text-color); flex-grow: 1;">
+        <button id="convert-rsid-btn" style="background: linear-gradient(90deg, #10b981, #3ce4c8); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">ユーザーIDを用いて変換</button>
+        <div id="spinner" class="loading-spinner" style="display: none;"></div>
+    </div>
+    <p id="error-message"></p>
+    <div class="bracket-container" id="bracket-container">
+        <svg id="bracket-lines"></svg>
+    </div>
+</div>
+
+<div id="modal-overlay" class="modal-overlay">
+    <span id="close-modal">&times;</span>
+    <div id="modal-content"></div>
+</div>
+
+<script>
+    // --- RSID変換用ロジック ---
+    const CONFIG = {
+        DATA_PATH: './data/',
+        FILE_COUNT: 256
+    };
+    const fileCache = new Map();
+
+    function hexToBigInt(hex) {
+        return BigInt('0x' + hex);
+    }
+
+    async function findRSIDIndex(targetRsid) {
+        let globalIndex = 0;
+        for (let i = 0; i < CONFIG.FILE_COUNT; i++) {
+            const fileName = i.toString(16).padStart(2, '0') + '.txt';
+            let content;
+            if (fileCache.has(fileName)) {
+                content = fileCache.get(fileName);
+            } else {
+                try {
+                    const response = await fetch(CONFIG.DATA_PATH + fileName);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    content = await response.text();
+                    fileCache.set(fileName, content);
+                } catch (e) {
+                    console.error(`Failed to fetch ${fileName}`, e);
+                    continue;
+                }
+            }
+            const lines = content.split('\n');
+            for (let line of lines) {
+                line = line.trim();
+                if (!line) continue;
+                const parts = line.split(/\s+/);
+                const currentRsid = parts.length > 1 ? parts[1] : parts[0];
+                if (currentRsid === targetRsid) {
+                    return globalIndex;
+                }
+                globalIndex++;
+            }
+        }
+        return -1;
+    }
+
+    async function getStringAtIndex(targetIndex) {
+        let currentIndex = 0;
+        for (let i = 0; i < CONFIG.FILE_COUNT; i++) {
+            const fileName = i.toString(16).padStart(2, '0') + '.txt';
+            let content;
+            if (fileCache.has(fileName)) {
+                content = fileCache.get(fileName);
+            } else {
+                const response = await fetch(CONFIG.DATA_PATH + fileName);
+                content = await response.text();
+                fileCache.set(fileName, content);
+            }
+            const lines = content.split('\n');
+            for (let line of lines) {
+                line = line.trim();
+                if (!line) continue;
+                if (currentIndex === targetIndex) {
+                    const parts = line.split(/\s+/);
+                    return parts.length > 1 ? parts[1] : parts[0];
+                }
+                currentIndex++;
+            }
+        }
+        return null;
+    }
+
+    let currentRoundsData = [];
+    let nodesMap = new Map();
+    
+    function parseNode(str) { str = str.trim(); if (!str.startsWith("(")) { const parts = str.split(/\s+/); const id = parts.shift(); const name = parts.join(" "); return { id, name, participants: [] }; } let balance = 0, end = -1; for (let i = 0; i < str.length; i++) { if (str[i] === "(") balance++; else if (str[i] === ")") balance--; if (balance === 0) { end = i; break; } } if (end === -1) throw new Error("括弧の対応が正しくありません。"); const winner = str.substring(end + 1).trim(); const inside = str.substring(1, end).trim(); let depth = 0, split = -1; for (let i = 0; i < inside.length; i++) { if (inside[i] === "(") depth++; else if (inside[i] === ")") depth--; else if (inside[i] === "+" && depth === 0) { split = i; break; } } if (split === -1) throw new Error("'+' 区切りが見つかりません。"); const left = inside.substring(0, split).trim(); const right = inside.substring(split + 1).trim(); return { name: winner, participants: [parseNode(left), parseNode(right)], id: null }; }
+
+    function clearLines() {
+        const svg = document.getElementById('bracket-lines');
+        if (svg) {
+            svg.innerHTML = '';
+        }
+    }
+
+    function drawLines(rounds) {
+        if (!rounds || rounds.length === 0) return;
+        const container = document.getElementById('bracket-container');
+        const svg = document.getElementById('bracket-lines');
+        svg.innerHTML = '';
+        svg.setAttribute('width', container.scrollWidth);
+        svg.setAttribute('height', container.scrollHeight);
+
+        function getElementPosition(id) {
+            const el = document.getElementById(id);
+            if (!el || el.classList.contains('collapsed')) return null;
+            const containerRect = container.getBoundingClientRect();
+            const elRect = el.getBoundingClientRect();
+            return {
+                id: id,
+                cx: elRect.left - containerRect.left + container.scrollLeft + elRect.width / 2,
+                top: elRect.top - containerRect.top + container.scrollTop,
+                bottom: elRect.top - containerRect.top + container.scrollTop + elRect.height,
+            };
+        }
+        
+        function connectCards(fromIds, toId, delay, pairIndex = 0, totalPairsInRound = 1) {
+            const toPos = getElementPosition(toId);
+            if (!toPos) return;
+
+            const fromPositions = fromIds.map(getElementPosition).filter(Boolean);
+            if (fromPositions.length === 0) return;
+
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            
+            path.id = `path-for-${toId}`;
+
+            let pathData = "";
+            fromPositions.sort((a, b) => a.cx - b.cx);
+
+            if (fromPositions.length === 2) {
+                const leftParentPos = fromPositions[0];
+                const rightParentPos = fromPositions[1];
+
+                const leftParentEl = document.getElementById(leftParentPos.id);
+                const rightParentEl = document.getElementById(rightParentPos.id);
+
+                let anchorParentPos = leftParentPos;
+                if (leftParentEl && rightParentEl) {
+                    const leftHasQr = leftParentEl.querySelector('.qr-code') !== null;
+                    const rightHasQr = rightParentEl.querySelector('.qr-code') !== null;
+                    if (leftHasQr && !rightHasQr) {
+                        anchorParentPos = rightParentPos;
+                    } else if (!leftHasQr && rightHasQr) {
+                        anchorParentPos = leftParentPos;
+                    }
+                }
+                
+                const parentCenterY = anchorParentPos.top + (anchorParentPos.bottom - anchorParentPos.top) / 2;
+                const midX = (leftParentPos.cx + rightParentPos.cx) / 2;
+
+                pathData += `M ${leftParentPos.cx},${parentCenterY} L ${rightParentPos.cx},${parentCenterY} `;
+                
+                const baseOffsetY = 120;
+                const maxAvailableSpace = 80;
+                const spacing = totalPairsInRound > 1 ? maxAvailableSpace / (totalPairsInRound - 1) : 0;
+                const yOffset = baseOffsetY - (pairIndex * spacing);
+                const verticalDropY = toPos.top - yOffset;
+
+                pathData += `M ${midX},${parentCenterY} L ${midX},${verticalDropY} `;
+                pathData += `L ${toPos.cx},${verticalDropY} `;
+                pathData += `L ${toPos.cx},${toPos.top} `; 
+                
+            } else if (fromPositions.length === 1) {
+                const fromPos = fromPositions[0];
+                const midX = (fromPos.cx + toPos.cx) / 2;
+                
+                pathData += `M ${fromPos.cx},${fromPos.bottom} L ${fromPos.cx},${fromPos.bottom + 40} `;
+                pathData += `L ${midX},${fromPos.bottom + 40} `;
+                pathData += `L ${midX},${toPos.top - 40} `;
+                pathData += `L ${toPos.cx},${toPos.top - 40} `;
+                pathData += `L ${toPos.cx},${toPos.top} `; 
+            }
+
+            path.setAttribute("d", pathData);
+            svg.appendChild(path);
+        }
+
+        for (let i = 0; i < rounds.length - 1; i++) {
+            const parentRound = rounds[i+1];
+            let activePairsCount = 0;
+            parentRound.forEach(n => {
+                if(n.participants && n.participants.length > 0) activePairsCount++;
+            });
+            
+            let pairCounter = 0;
+            parentRound.forEach((parentNode) => {
+                if(parentNode.participants && parentNode.participants.length > 0) {
+                    const childIds = parentNode.participants.map(p => p.uniqueId);
+                    connectCards(childIds, parentNode.uniqueId, 0, pairCounter, activePairsCount);
+                    pairCounter++;
+                }
+            });
+        }
+    }
+
+    function applyFaceParts(championCardId, statusText) { const championEl = document.getElementById(championCardId); if (!championEl) return; const partAndColorConfig = { "髪色": { selector: '.hair-color-box', folder: '髪色画像' }, "肌色": { selector: '.skin-color-box', folder: '肌色画像' }, "髪": { selector: '.preview-kami-rinkaku', folder: '髪・輪郭画像' }, "眉": { selector: '.preview-mayu', folder: '眉画像' }, "目": { selector: '.preview-me', folder: '目画像' }, "鼻": { selector: '.preview-hana', folder: '鼻画像' }, "頬": { selector: '.preview-hoo', folder: '頬画像' }, "口": { selector: '.preview-kuchi', folder: '口画像' } }; for (const config of Object.values(partAndColorConfig)) { const element = championEl.querySelector(config.selector); if (element) { element.style.backgroundImage = 'none'; } } if (statusText) { for (const [key, config] of Object.entries(partAndColorConfig)) { const regex = new RegExp(`${key}:(\\d+)`); const match = statusText.match(regex); if (match && match[1]) { const partNumber = match[1]; const element = championEl.querySelector(config.selector); if (element) { element.style.backgroundImage = `url('${config.folder}/${partNumber}.png')`; } } } } }
+    const COLOR_MAP = { "黒": "#2c2c2c", "濃黒": "#000000", "薄黒": "#696969", "赤": "#e60012", "濃赤": "#a2000b", "薄赤": "#f19ca3", "水色": "#00a0e9", "濃水色": "#0072a6", "薄水色": "#89c3eb", "緑": "#009944", "濃緑": "#00672e", "薄緑": "#8ac59f", "橙": "#f39800", "濃橙": "#ab6a00", "薄橙": "#f9c988", "黄色": "#fff100", "濃黄色": "#b2a900", "薄黄色": "#fff888", "青": "#0068b7", "濃青": "#00477f", "薄青": "#89b2d3", "白": "#ffffff", "濃白": "#f0f0f0", "薄白": "#ffffff", "紫": "#8f4e9d", "濃紫": "#64366d", "薄紫": "#c3a5cb", "桃": "#e4007f", "濃桃": "#a00059", "薄桃": "#ef89ba", "金": "#b59e38", "濃金": "#7e6e27", "薄金": "#d3c285", "銀": "#8a8c8e", "濃銀": "#6062a3", "薄銀": "#c2c3c4", "通常黒": "#2c2c2c", "通常赤": "#e60012", "通常水色": "#00a0e9", "通常緑": "#009944", "通常橙": "#f39800", "通常黄色": "#fff100", "通常青": "#0068b7", "通常白": "#ffffff", "通常紫": "#8f4e9d", "通常桃": "#e4007f", "通常金": "#b59e38", "通常銀": "#8a8c8e" };
+    const PATTERN_RANK_MAP = { 'なし': 'D(単色)', 'ツートン': 'C', 'ボーダー': 'C', 'ストライプ': 'C', '水玉': 'C', 'アニマル': 'C', '斜めボーダー': 'C', 'ギンガムチェック': 'B', 'ダイヤ': 'B', '鱗文': 'B', 'シェブロン': 'B', 'バブルドット': 'B', 'スペード': 'B', 'ピンドット': 'A', 'レンガ': 'A', 'スプラッシュ': 'A', 'マーブル': 'A', 'ヘビ': 'A', 'しずく': 'A', 'うろこ': 'A', 'トラ': 'S', '花': 'S', '星': 'S' };
+    function applyAppearanceInfo(championCardId, statusText) { const championEl = document.getElementById(championCardId); const paletteContainer = championEl.querySelector('.custom-color-palette'); if (!paletteContainer) return; paletteContainer.innerHTML = ''; if (!statusText) return; const colorMatch = statusText.match(/色:([\s\S]*?)(柄:|髪:|髪色:|肌色:|眉:|目:|鼻:|頬:|口:|$)/); if (colorMatch && colorMatch[1]) { const colorNames = colorMatch[1].trim().split(/\s+/); colorNames.forEach(name => { if (COLOR_MAP[name]) { const item = document.createElement('div'); item.className = 'palette-item'; const box = document.createElement('div'); box.className = 'palette-color-box'; box.style.backgroundColor = COLOR_MAP[name]; const text = document.createTextNode(name); item.appendChild(box); item.appendChild(text); paletteContainer.appendChild(item); } }); } const patternMatch = statusText.match(/柄:([\s\S]*?)(髪:|髪色:|肌色:|眉:|目:|鼻:|頬:|口:|$)/); if (patternMatch && patternMatch[1]) { const patternName = patternMatch[1].trim(); const rank = PATTERN_RANK_MAP[patternName]; if (rank) { const item = document.createElement('div'); item.className = 'palette-item pattern-rank'; item.textContent = `柄ランク:${rank}`; let borderColor = 'var(--primary-accent)'; if (rank === 'D(単色)') { borderColor = '#FFFFFF'; } else if (rank === 'C') { borderColor = '#90EE90'; } else if (rank === 'B') { borderColor = '#ADD8E6'; } else if (rank === 'A') { borderColor = '#F08080'; } item.style.borderColor = borderColor; paletteContainer.appendChild(item); } } }
+    function setupQRCodeModal() {
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalContent = document.getElementById('modal-content');
+        const closeModalBtn = document.getElementById('close-modal');
+        const closeModal = () => {
+            modalOverlay.style.display = 'none';
+            modalContent.innerHTML = '';
+        };
+        document.getElementById('bracket-container').addEventListener('click', (event) => {
+             const qrEl = event.target.closest('.qr-code');
+             if (!qrEl) return;
+             event.stopPropagation();
+             const qrData = qrEl.dataset.id;
+             if (qrData) {
+                 const qrContainer = document.createElement('div');
+                 qrContainer.style.background = 'white';
+                 qrContainer.style.padding = '15px';
+                 qrContainer.style.borderRadius = '8px';
+                 modalContent.innerHTML = ''; 
+                 modalContent.appendChild(qrContainer);
+                 const alphanumericOnlyQrData = qrData.replace(/[^a-zA-Z0-9]/g, '');
+                 new QRCode(qrContainer, {
+                     text: alphanumericOnlyQrData, 
+                     width: 400,
+                     height: 400
+                 });
+                 modalOverlay.style.display = 'flex';
+             }
+        });
+        closeModalBtn.addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', (event) => {
+            if (event.target === modalOverlay) {
+                closeModal();
+            }
+        });
+    }
+
+    function getAllAncestorIds(node, nodesMap) {
+        let ancestors = new Set();
+        function find(currentNode) {
+            if (!currentNode || !currentNode.participants || currentNode.participants.length === 0) return;
+            for (const parent of currentNode.participants) {
+                ancestors.add(parent.uniqueId);
+                const parentNode = nodesMap.get(parent.uniqueId);
+                if (parentNode) {
+                    find(parentNode); 
+                }
+            }
+        }
+        find(node);
+        return ancestors;
+    }
+
+    function updateAllVisibility(nodesMap) {
+        const allNodeElements = document.querySelectorAll('.player-card');
+        const hiddenNodeIds = new Set();
+
+        document.querySelectorAll('[data-collapsed="true"]').forEach(collapsedNodeEl => {
+            const node = nodesMap.get(collapsedNodeEl.id);
+            if (node) {
+                const ancestorIds = getAllAncestorIds(node, nodesMap);
+                ancestorIds.forEach(id => hiddenNodeIds.add(id));
+            }
+        });
+
+        allNodeElements.forEach(el => {
+            if (hiddenNodeIds.has(el.id)) {
+                el.classList.add('collapsed');
+            } else {
+                el.classList.remove('collapsed');
+            }
+        });
+
+        requestAnimationFrame(() => {
+            drawLines(currentRoundsData);
+        });
+    }
+
+    function setupCollapseInteraction(nodesMap) {
+        document.querySelectorAll('.collapsible').forEach(card => {
+            card.addEventListener('click', (event) => {
+                if (event.target.closest('.qr-code')) {
+                    return;
+                }
+                
+                const cardEl = event.currentTarget;
+                const isCollapsed = cardEl.dataset.collapsed === 'true';
+
+                if (isCollapsed) {
+                    delete cardEl.dataset.collapsed;
+                } else {
+                    cardEl.dataset.collapsed = 'true';
+                }
+                
+                updateAllVisibility(nodesMap);
+            });
+        });
+    }
+
+    function setupHighlightInteraction(nodesMap) {
+        const container = document.getElementById('bracket-container');
+        if (!container) return;
+        
+        const allPaths = () => container.querySelectorAll('#bracket-lines path');
+        const allCards = () => container.querySelectorAll('.player-card');
+
+        document.querySelectorAll('.player-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                container.classList.add('highlight-active');
+                
+                const currentId = card.id;
+                const node = nodesMap.get(currentId); 
+                if (!node) return;
+
+                card.classList.add('highlight-focus');
+
+                if (node.participants.length > 0) {
+                    const myBirthPath = document.getElementById(`path-for-${currentId}`);
+                    if (myBirthPath) myBirthPath.classList.add('highlight-focus');
+
+                    node.participants.forEach(parent => {
+                        const parentCard = document.getElementById(parent.uniqueId);
+                        if (parentCard) parentCard.classList.add('highlight-focus');
+                    });
+                }
+
+                if (node.parentId) { 
+                    const childNode = nodesMap.get(node.parentId); 
+                    if (childNode) {
+                        const childCard = document.getElementById(childNode.uniqueId);
+                        if (childCard) childCard.classList.add('highlight-focus');
+
+                        const myCreationPath = document.getElementById(`path-for-${childNode.uniqueId}`);
+                        if (myCreationPath) myCreationPath.classList.add('highlight-focus');
+
+                        const pairNode = childNode.participants.find(p => p.uniqueId !== currentId);
+                        if (pairNode) {
+                            const pairCard = document.getElementById(pairNode.uniqueId);
+                            if (pairCard) pairCard.classList.add('highlight-focus');
+                        }
+                    }
+                }
+            });
+
+            card.addEventListener('mouseleave', () => {
+                container.classList.remove('highlight-active');
+                allPaths().forEach(p => p.classList.remove('highlight-focus'));
+                allCards().forEach(c => c.classList.remove('highlight-focus'));
+            });
+        });
+    }
+
+
+    document.getElementById('generate-btn').addEventListener('click', () => {
+        const input = document.getElementById('rsid-input').value.trim();
+        const errorEl = document.getElementById('error-message');
+        const container = document.getElementById('bracket-container');
+        
+        container.innerHTML = '<svg id="bracket-lines"></svg>';
+        
+        errorEl.style.display = 'none';
+        currentRoundsData = [];
+        nodesMap.clear(); 
+        if (!input) return;
+
+        try {
+            let stringToParse = input;
+            let statusString = '';
+            let formattedStatus = '';
+            const treeForCheck = parseNode(stringToParse);
+            const winnerName = treeForCheck.name;
+            const headIndex = winnerName.indexOf('頭:');
+            if (headIndex !== -1) {
+                statusString = winnerName.substring(headIndex);
+                const winnerNameOnly = winnerName.substring(0, headIndex).trim();
+                const lastWinnerNameIndex = stringToParse.lastIndexOf(winnerName);
+                stringToParse = stringToParse.substring(0, lastWinnerNameIndex) + winnerNameOnly;
+            }
+            if (statusString) {
+                let tempStatus = statusString;
+                tempStatus = tempStatus.replace(
+                    /(色:)([\s\S]*?)(?=(?:柄:|髪:|髪色:|肌色:|眉:|目:|鼻:|頬:|口:)|$)/,
+                    (match, colorKeyword, colorText) => {
+                        const processedText = colorText.trim().replace(/\s+/g, '&');
+                        return colorKeyword + processedText + '\n';
+                    }
+                );
+                formattedStatus = tempStatus.replace(/\s+/g, '\n').trim();
+            }
+            
+            const tree = parseNode(stringToParse);
+            const roundsData = [];
+            
+            function assignDepthAndId(node, depth, parentId = null) { 
+                if (!roundsData[depth]) roundsData[depth] = []; 
+                node.uniqueId = `d${depth}_${roundsData[depth].length}`;
+                node.parentId = parentId; 
+                roundsData[depth].push(node); 
+                node.participants.forEach(p => assignDepthAndId(p, depth + 1, node.uniqueId)); 
+            }
+            
+            assignDepthAndId(tree, 0);
+            const reversedRounds = [...roundsData].reverse();
+            
+            currentRoundsData = reversedRounds;
+
+            nodesMap = new Map(currentRoundsData.flat().map(node => [node.uniqueId, node]));
+
+            let html = "";
+            let cardCounter = 0;
+            reversedRounds.forEach((round, i) => {
+                const isChampionRound = i === reversedRounds.length - 1;
+                html += `<div class="round">`;
+                html += round.map(node => {
+
+                    let pairName = "なし";
+                    let childName = "なし";
+                    let pairClass = '';
+                    
+                    // ★追加: 親の名前を取得する処理
+                    let parentsText = "なし";
+                    if (node.participants && node.participants.length > 0) {
+                        parentsText = node.participants.map(p => p.name.split(' ')[0]).join(' + ');
+                    }
+
+                    if (node.parentId) { 
+                        const childNode = nodesMap.get(node.parentId); 
+                        if (childNode) {
+                            childName = childNode.name.split(' ')[0];
+                            if (childNode.participants.length === 2) {
+                                const pairNode = childNode.participants.find(p => p.uniqueId !== node.uniqueId);
+                                if (pairNode) {
+                                    pairName = pairNode.name.split(' ')[0];
+                                }
+
+                                if (childNode.participants[0].uniqueId === node.uniqueId) {
+                                    pairClass = ' pair-first'; 
+                                } else if (childNode.participants[1].uniqueId === node.uniqueId) {
+                                    pairClass = ' pair-second'; 
+                                }
+                            }
+                        }
+                    }
+                    
+                    // ★変更: 親:◯◯ を表示に追加
+                    const relationHtml = `
+                        <div class="relation-info">
+                            <div>親: ${parentsText}</div>
+                            <div>ペア: ${pairName}</div>
+                            <div>子: ${childName}</div>
+                        </div>`;
+
+                    let nameSuffix = '';
+                    if (pairClass.includes('pair-first')) nameSuffix = '(先)';
+                    else if (pairClass.includes('pair-second')) nameSuffix = '(後)';
+
+                    let cardStyle = ``; 
+                    const isLeafNode = !node.participants.length;
+                    const collapsibleClass = !isLeafNode ? ' collapsible' : '';
+
+                    const cardHtml = isChampionRound ?
+                        `<div class="player-card champion-card collapsible${pairClass}" id="${node.uniqueId}" style="${cardStyle}">
+                            <div class="face-preview-container"> <div class="part-layer preview-kami-rinkaku"></div> <div class="part-layer preview-hoo"></div> <div class="part-layer preview-me"></div> <div class="part-layer preview-mayu"></div> <div class="part-layer preview-hana"></div> <div class="part-layer preview-kuchi"></div> </div>
+                            <div class="color-info-container"> <div class="color-info-item">髪色<div class="color-preview-box hair-color-box"></div></div> <div class="color-info-item">肌色<div class="color-preview-box skin-color-box"></div></div> </div>
+                            <div class="custom-color-palette"></div>
+                            <div class="name">${node.name.replace(' ', '<br>')}${nameSuffix}</div>
+                            ${relationHtml}
+                            ${formattedStatus ? `<div class="status">${formattedStatus}</div>` : ''}
+                        </div>`
+                        : 
+                        `<div class="player-card${collapsibleClass}${pairClass}" id="${node.uniqueId}" style="${cardStyle}">
+                            <div class="name">${node.name}${nameSuffix}</div>
+                            ${relationHtml}
+                            ${!node.participants.length ? `<div class="qr-code" data-id="${node.id}"></div><div class="rsid-text">${node.id}</div>` : ''}
+                        </div>`;
+                    
+                    cardCounter++;
+                    return cardHtml;
+                }).join('');
+                html += `</div>`;
+            });
+            container.insertAdjacentHTML('beforeend', html);
+            
+            document.querySelectorAll('.round').forEach(roundEl => {
+                const count = roundEl.querySelectorAll('.player-card').length;
+                if (count >= 12) { roundEl.classList.add('is-super-crowded'); }
+                else if (count >= 8) { roundEl.classList.add('is-crowded'); }
+                else if (count >= 4) { roundEl.classList.add('is-dense'); }
+            });
+            
+            document.querySelectorAll('.qr-code').forEach(el => {
+                if (el.dataset.id) {
+                    const originalId = el.dataset.id;
+                    const alphanumericOnlyId = originalId.replace(/[^a-zA-Z0-9]/g, '');
+                    new QRCode(el, {
+                        text: alphanumericOnlyId, 
+                        width: 150,
+                        height: 150
+                    });
+                }
+            });
+
+            setupQRCodeModal(); 
+            setupCollapseInteraction(nodesMap);
+            setupHighlightInteraction(nodesMap);
+            
+            const championNode = reversedRounds[reversedRounds.length - 1][0];
+            if (championNode) {
+                applyFaceParts(championNode.uniqueId, statusString);
+                applyAppearanceInfo(championNode.uniqueId, statusString);
+            }
+
+            requestAnimationFrame(() => {
+                drawLines(currentRoundsData);
+            });
+
+        } catch (e) { 
+            errorEl.textContent = "エラー: " + e.message; 
+            errorEl.style.display = 'block'; 
+        }
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', () => { 
+        document.getElementById('rsid-input').value = ''; 
+        document.getElementById('bracket-container').innerHTML = '<svg id="bracket-lines"></svg>'; 
+        document.getElementById('error-message').style.display = 'none'; 
+        currentRoundsData = [];
+        nodesMap.clear(); 
+    });
+    
+    document.getElementById('collapse-all-btn').addEventListener('click', () => {
+        if (!nodesMap || nodesMap.size === 0) {
+            alert('先に家系図を生成してください。');
+            return;
+        }
+
+        const collapsibleNodes = document.querySelectorAll('.collapsible');
+        if (collapsibleNodes.length === 0) return;
+
+        collapsibleNodes.forEach(card => {
+            card.dataset.collapsed = 'true';
+        });
+
+        updateAllVisibility(nodesMap);
+    });
+
+    document.getElementById('save-btn').addEventListener('click', () => {
+        const container = document.getElementById('bracket-container');
+        if (container.children.length <= 1) { 
+            alert('先に家系図を生成してください。'); 
+            return; 
+        }
+
+        drawLines(currentRoundsData);
+        container.classList.add('screenshot-mode');
+        
+        setTimeout(() => {
+            html2canvas(container, {
+                useCORS: true, scale: 3, backgroundColor: "#2c2c3e", imageSmoothingEnabled: false,
+                scrollX: 0,
+                scrollY: 0,
+                width: container.scrollWidth,
+                height: container.scrollHeight,
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = 'family-tree.png';
+                link.click();
+            }).finally(() => {
+                container.classList.remove('screenshot-mode');
+                drawLines(currentRoundsData);
+            });
+        }, 300); 
+    });
+
+    const textarea = document.getElementById('rsid-input');
+    textarea.addEventListener('input', () => { textarea.style.height = 'auto'; textarea.style.height = `${textarea.scrollHeight}px`; });
+    
+    let resizeTimer;
+    window.addEventListener('resize', () => { 
+        clearTimeout(resizeTimer); 
+        resizeTimer = setTimeout(() => { 
+            drawLines(currentRoundsData);
+        }, 200); 
+    });
+
+    let scrollTimer;
+    document.getElementById('bracket-container').addEventListener('scroll', () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => {
+            drawLines(currentRoundsData);
+        }, 100);
+    });
+
+    document.getElementById('convert-rsid-btn').addEventListener('click', async () => {
+        const errorEl = document.getElementById('error-message');
+        const spinner = document.getElementById('spinner');
+        const convertBtn = document.getElementById('convert-rsid-btn');
+        const playerIdHex = document.getElementById('player-id-input').value.trim();
+
+        if (!playerIdHex) {
+            errorEl.style.color = '#f96666'; // エラー色にリセット
+            errorEl.textContent = "エラー：プレイヤーIDを入力してください。";
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        let idNum;
+        try {
+            idNum = Number(hexToBigInt(playerIdHex));
+        } catch (e) {
+            errorEl.style.color = '#f96666'; // エラー色にリセット
+            errorEl.textContent = "エラー：プレイヤーIDは正しい16進数（例: cc0db7）で入力してください。";
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        if (!currentRoundsData || currentRoundsData.length === 0) {
+            errorEl.style.color = '#f96666'; // エラー色にリセット
+            errorEl.textContent = "エラー：先に家系図を生成してください。";
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        errorEl.style.display = 'none';
+        spinner.style.display = 'block';
+        convertBtn.disabled = true;
+
+        try {
+            const leafNodes = [];
+            for (const round of currentRoundsData) {
+                for (const node of round) {
+                    if (!node.participants || node.participants.length === 0) {
+                        leafNodes.push(node);
+                    }
+                }
+            }
+
+            for (const node of leafNodes) {
+                if (!node.id) continue;
+                const targetRsid = node.id.replace(/_/g, "");
+                const rsidIndex = await findRSIDIndex(targetRsid);
+                if (rsidIndex === -1) {
+                    console.warn(`RSID '${targetRsid}' が見つかりませんでした。`);
+                    continue;
+                }
+
+                let newIndex = 0;
+                newIndex |= (0x100 + (rsidIndex & 0xff) - (idNum & 0xff)) & 0xff;
+                newIndex |= ((0x10000 + (rsidIndex & 0xff00) - (idNum & 0xff00)) & 0xff00);
+                newIndex |= ((0x1000000 + (rsidIndex & 0xff0000) - (idNum & 0xff0000)) & 0xff0000);
+
+                const newRsidString = await getStringAtIndex(newIndex);
+                if (newRsidString) {
+                    node.id = newRsidString;
+                }
+            }
+
+            for (const node of leafNodes) {
+                const cardEl = document.getElementById(node.uniqueId);
+                if (cardEl) {
+                    const rsidTextEl = cardEl.querySelector('.rsid-text');
+                    if (rsidTextEl) {
+                        rsidTextEl.textContent = node.id;
+                    }
+                    const qrEl = cardEl.querySelector('.qr-code');
+                    if (qrEl) {
+                        qrEl.innerHTML = '';
+                        qrEl.dataset.id = node.id;
+                        const alphanumericOnlyId = node.id.replace(/[^a-zA-Z0-9]/g, '');
+                        new QRCode(qrEl, {
+                            text: alphanumericOnlyId,
+                            width: 150,
+                            height: 150
+                        });
+                    }
+                }
+            }
+            errorEl.style.color = '#3ce4c8'; // 成功色
+            errorEl.textContent = '全QRコードの変換が完了しました！';
+            errorEl.style.display = 'block';
+        } catch (e) {
+            console.error(e);
+            errorEl.style.color = '#f96666'; // エラー色
+            errorEl.textContent = "エラー：変換処理中に予期しない問題が発生しました。";
+            errorEl.style.display = 'block';
+        } finally {
+            spinner.style.display = 'none';
+            convertBtn.disabled = false;
+        }
+    });
+
+</script>
+</body>
+</html>
