@@ -258,7 +258,7 @@
 
         .button-group {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 10px;
         }
 
@@ -299,6 +299,26 @@
         #collapse-all-btn {
             background: linear-gradient(90deg, #f08a5a, #f96666);
             box-shadow: 0 4px 15px rgba(240, 138, 90, 0.2);
+        }
+
+        #paste-btn {
+            background: linear-gradient(90deg, #10b981, #059669);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+        }
+
+        #webhook-share-btn {
+            background: linear-gradient(90deg, #5865F2, #7289da);
+            box-shadow: 0 4px 15px rgba(88, 101, 242, 0.2);
+        }
+
+        #history-export-btn {
+            background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+        }
+
+        #history-import-btn {
+            background: linear-gradient(90deg, #ec4899, #db2777);
+            box-shadow: 0 4px 15px rgba(236, 72, 153, 0.2);
         }
 
         .bracket-container {
@@ -492,7 +512,7 @@
         #bracket-lines path {
             stroke: var(--line-color);
             stroke-width: 1.5px;
-            stroke-opacity: 0.15;
+            stroke-opacity: 0.45;
             fill: none;
             transition: stroke-width 0.3s ease, stroke-opacity 0.3s ease;
         }
@@ -767,11 +787,8 @@
         /* --- プログレスバー --- */
         #progress-container {
             display: none;
-            margin-top: 15px;
-            background-color: var(--card-bg);
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 10px;
+            padding: 0;
         }
 
         #progress-bar-wrapper {
@@ -869,6 +886,249 @@
             color: var(--text-muted);
             white-space: nowrap;
         }
+
+        /* --- テキストエリアコンテナ（貼り付けボタン用） --- */
+        .textarea-container {
+            position: relative;
+        }
+
+        .paste-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(127, 90, 240, 0.25);
+            color: var(--text-color);
+            border: 1px solid rgba(127, 90, 240, 0.4);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.15s ease;
+            z-index: 10;
+        }
+
+        .paste-btn:hover {
+            background: rgba(127, 90, 240, 0.45);
+            transform: translateY(-1px);
+        }
+
+        /* --- プレイヤーID管理エリア --- */
+        .player-id-area {
+            margin-top: 20px;
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .player-id-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .player-id-row label {
+            font-weight: 700;
+        }
+
+        .player-id-row input[type="text"] {
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--primary-accent);
+            background: var(--bg-color);
+            color: var(--text-color);
+            flex-grow: 1;
+        }
+
+        .player-id-select {
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--primary-accent);
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-size: 14px;
+            cursor: pointer;
+            min-width: 140px;
+        }
+
+        .player-id-manage-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            align-items: center;
+        }
+
+        .player-id-manage-row input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-size: 13px;
+        }
+
+        .pid-add-btn,
+        .pid-del-btn {
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        .pid-add-btn {
+            background: linear-gradient(90deg, #10b981, #3ce4c8);
+        }
+
+        .pid-del-btn {
+            background: rgba(249, 102, 102, 0.3);
+            color: #f96666;
+        }
+
+        .pid-del-btn:hover {
+            background: rgba(249, 102, 102, 0.5);
+        }
+
+        /* --- 履歴エクスポート/インポート --- */
+        .history-actions {
+            display: flex;
+            gap: 4px;
+            padding: 8px 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            flex-shrink: 0;
+        }
+
+        .history-actions button {
+            flex: 1;
+            padding: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .history-actions button:hover {
+            background: rgba(127, 90, 240, 0.2);
+            color: var(--text-color);
+            transform: none;
+        }
+
+        /* --- ドラッグ＆ドロップ --- */
+        .history-item.dragging {
+            opacity: 0.4;
+        }
+
+        .history-item.drag-over {
+            border-top: 2px solid var(--primary-accent);
+        }
+
+        .drag-handle {
+            cursor: grab;
+            color: var(--text-muted);
+            font-size: 12px;
+            flex-shrink: 0;
+            opacity: 0;
+            transition: opacity 0.2s;
+            user-select: none;
+        }
+
+        .history-item:hover .drag-handle {
+            opacity: 0.6;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        /* --- テーマ切替トグル --- */
+        .theme-toggle {
+            position: relative;
+            width: 48px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            cursor: pointer;
+            border: none;
+            padding: 0;
+            transition: background 0.3s;
+            flex-shrink: 0;
+        }
+
+        .theme-toggle::after {
+            content: '🌙';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-accent);
+            transition: transform 0.3s, content 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        [data-theme="light"] .theme-toggle {
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        [data-theme="light"] .theme-toggle::after {
+            content: '☀️';
+            transform: translateX(24px);
+            background: #f59e0b;
+        }
+
+        /* --- ライトモード --- */
+        [data-theme="light"] {
+            --bg-color: #eef1f5;
+            --container-bg: #ffffff;
+            --card-bg: #f4f5f7;
+            --primary-accent: #6c47d9;
+            --champion-accent: #d4a017;
+            --text-color: #1e1e2e;
+            --text-muted: #6b7280;
+            --line-color: #0d9488;
+        }
+
+        [data-theme="light"] body {
+            background-color: var(--bg-color);
+        }
+
+        [data-theme="light"] h1 {
+            color: var(--text-color);
+            text-shadow: none;
+        }
+
+        [data-theme="light"] textarea {
+            border-color: #c4b5fd;
+        }
+
+        [data-theme="light"] .history-sidebar {
+            border-color: rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        [data-theme="light"] .container {
+            border-color: rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        [data-theme="light"] .player-card {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="light"] .rsid-text {
+            color: #555;
+        }
     </style>
 </head>
 
@@ -885,38 +1145,90 @@
             </div>
             <div class="history-empty" id="history-empty">まだ履歴がありません。<br>家系図を生成すると<br>ここに保存されます。</div>
         </div>
+        <div class="history-actions" style="display: none;">
+        </div>
+        <input type="file" id="history-import-file" accept=".json" style="display: none;">
     </div>
 
     <div class="container">
-        <h1>家系図ジェネレーター(顔プレビュー付き)</h1>
-        <textarea id="rsid-input" placeholder="RSIDを貼り付けてください"></textarea>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="flex-grow: 1;">家系図ジェネレーター(顔プレビュー付き)</h1>
+            <button class="theme-toggle" id="theme-toggle" title="テーマ切替"></button>
+        </div>
+        <div class="textarea-container">
+            <textarea id="rsid-input" placeholder="RSIDを貼り付けてください"></textarea>
+        </div>
         <div class="button-group">
-            <button id="generate-btn">家系図を生成</button>
-            <button id="save-btn">画像として保存</button>
+            <button id="paste-btn"><span
+                    style="color: #ffeb3b; margin-right: 4px; text-shadow: 0 0 8px rgba(255,235,59,0.6);">①</span>貼り付け</button>
+            <button id="generate-btn"><span
+                    style="color: #ffeb3b; margin-right: 4px; text-shadow: 0 0 8px rgba(255,235,59,0.6);">②</span>家系図を生成</button>
             <button id="clear-btn">削除</button>
             <button id="collapse-all-btn">すべて折りたたむ</button>
-            <button id="webhook-share-btn">Webhookで共有</button>
         </div>
-        <div
-            style="margin-top: 20px; display: flex; gap: 10px; align-items: center; background-color: var(--card-bg); padding: 15px; border-radius: 8px;">
-            <label for="player-id-input" style="font-weight: 700;">プレイヤーID:</label>
-            <input type="text" id="player-id-input" placeholder="例: cc0db7" maxlength="6"
-                style="padding: 10px; border-radius: 4px; border: 1px solid var(--primary-accent); background: var(--bg-color); color: var(--text-color); flex-grow: 1;">
-            <button id="convert-rsid-btn"
-                style="background: linear-gradient(90deg, #10b981, #3ce4c8); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">ユーザーIDを用いて変換</button>
-            <div id="spinner" class="loading-spinner" style="display: none;"></div>
-        </div>
-        <div id="progress-container">
-            <div id="progress-bar-wrapper">
-                <div id="progress-bar"></div>
+        <div class="player-id-area">
+            <div style="display: flex; gap: 20px; align-items: stretch;">
+                <!-- 左に大きく配置する変換ボタン -->
+                <button id="convert-rsid-btn"
+                    style="background: linear-gradient(90deg, #10b981, #3ce4c8); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); padding: 0 30px; font-size: 16px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; white-space: nowrap; transition: transform 0.2s, box-shadow 0.2s; display: flex; align-items: center; justify-content: center;">
+                    <span
+                        style="color: #ffeb3b; margin-right: 4px; text-shadow: 0 0 8px rgba(255,235,59,0.6);">③</span>プレイヤーIDを用いて変換
+                </button>
+                <div id="spinner" class="loading-spinner" style="display: none; align-self: center;"></div>
+
+                <!-- 右側の入力・セレクトエリア -->
+                <div
+                    style="display: flex; flex-direction: column; gap: 10px; margin-left: 150px; justify-content: center; flex-grow: 1;">
+                    <div class="player-id-row"
+                        style="margin: 0; display: flex; gap: 10px; align-items: center; width: 100%;">
+                        <label for="player-id-input"
+                            style="white-space: nowrap; width: auto; min-width: 100px; flex-shrink: 0;">プレイヤーID:</label>
+                        <select class="player-id-select" id="player-id-select"
+                            style="width: 200px; min-width: 200px; flex-shrink: 0;">
+                            <option value="">-- 手動入力 --</option>
+                        </select>
+                        <input type="text" id="player-id-input" placeholder="例: cc0db7" maxlength="6"
+                            style="flex-grow: 1; min-width: 100px;">
+                    </div>
+
+                    <!-- プルダウンの下に配置する登録ボタンとフォーム -->
+                    <div style="display: flex; gap: 15px; align-items: center; margin-left: 110px;">
+                        <div style="display: flex; gap: 8px; width: 200px; flex-shrink: 0;">
+                            <button id="show-register-btn"
+                                style="background: rgba(127, 90, 240, 0.2); border: 1px solid rgba(127, 90, 240, 0.5); color: var(--text-color); padding: 6px 0; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: background 0.2s; flex: 1; text-align: center;">
+                                ＋ ID登録
+                            </button>
+                            <button id="pid-del-btn"
+                                style="background: rgba(220, 53, 69, 0.15); border: 1px solid rgba(220, 53, 69, 0.4); color: #ff6b6b; padding: 6px 0; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: background 0.2s; display: none; flex: 1; text-align: center;">削除</button>
+                        </div>
+
+                        <div class="player-id-manage-row" id="player-id-manage-row" style="display: none; margin: 0;">
+                            <input type="text" id="pid-name-input" placeholder="名前 (例: 自分)" style="width: 120px;">
+                            <input type="text" id="pid-id-input" placeholder="ID (例: cc0db7)" maxlength="6"
+                                style="width: 100px;">
+                            <button class="pid-add-btn" id="pid-add-btn">登録を確定</button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <span id="progress-text">準備中...</span>
+            <div id="progress-container">
+                <div id="progress-bar-wrapper">
+                    <div id="progress-bar"></div>
+                </div>
+                <span id="progress-text">準備中...</span>
+            </div>
         </div>
-        <div class="webhook-settings">
+        <div class="webhook-settings" style="margin-top: 80px;">
             <label for="webhook-url-input">Webhook URL:</label>
             <input type="url" id="webhook-url-input" placeholder="https://discord.com/api/webhooks/...">
             <button id="webhook-save-btn">保存</button>
             <span id="webhook-status"></span>
+        </div>
+        <div class="button-group" style="margin-top: 15px;">
+            <button id="save-btn">画像として保存</button>
+            <button id="webhook-share-btn">Webhookで共有</button>
+            <button id="history-export-btn">jsonでエクスポート</button>
+            <button id="history-import-btn">jsonでインポート</button>
         </div>
         <p id="error-message"></p>
         <div class="bracket-container" id="bracket-container">
@@ -933,7 +1245,7 @@
         // --- 履歴管理 (localStorage) ---
         const HISTORY_KEY = 'rsidHistory';
         const MAX_HISTORY = 50; // 最大保存件数
-        
+
         let currentActiveHistoryId = null;
 
         /**
@@ -1045,8 +1357,8 @@
             } else {
                 // データが空ならクリアのみ
                 document.getElementById('clear-btn').click();
-                renderHistoryList(); // activeクラスをつけるため
             }
+            renderHistoryList(); // activeクラスをつけるため
         }
 
         /**
@@ -1067,10 +1379,14 @@
 
             if (emptyEl) emptyEl.style.display = 'none';
 
-            history.forEach(entry => {
+            let dragSrcEl = null;
+
+            history.forEach((entry, idx) => {
                 const item = document.createElement('div');
                 item.className = 'history-item';
                 item.dataset.id = entry.id;
+                item.dataset.index = idx;
+                item.draggable = true;
 
                 if (entry.id === currentActiveHistoryId) {
                     item.classList.add('active');
@@ -1081,6 +1397,7 @@
                     : `<div class="history-item-icon">🌳</div>`;
 
                 item.innerHTML = `
+                <span class="drag-handle">☰</span>
                 ${iconHtml}
                 <div class="history-item-info">
                     <div class="history-item-name" title="${entry.name}">${entry.name}</div>
@@ -1089,10 +1406,52 @@
                 <button class="history-item-delete" title="削除">✕</button>
             `;
 
+                // ドラッグ＆ドロップイベント
+                item.addEventListener('dragstart', (e) => {
+                    dragSrcEl = item;
+                    item.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', entry.id);
+                });
+
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    item.classList.add('drag-over');
+                });
+
+                item.addEventListener('dragleave', () => {
+                    item.classList.remove('drag-over');
+                });
+
+                item.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    item.classList.remove('drag-over');
+                    if (dragSrcEl === item) return;
+
+                    const draggedId = e.dataTransfer.getData('text/plain');
+                    const history = getHistory();
+                    const fromIdx = history.findIndex(h => h.id === draggedId);
+                    const toIdx = history.findIndex(h => h.id === entry.id);
+                    if (fromIdx === -1 || toIdx === -1) return;
+
+                    const [moved] = history.splice(fromIdx, 1);
+                    history.splice(toIdx, 0, moved);
+                    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+                    renderHistoryList();
+                });
+
+                item.addEventListener('dragend', () => {
+                    item.classList.remove('dragging');
+                    listEl.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                    dragSrcEl = null;
+                });
+
                 // 項目クリック → 読み込み
                 item.addEventListener('click', (e) => {
-                    // 削除ボタンのクリックは除外
+                    // 削除ボタン・ドラッグハンドルのクリックは除外
                     if (e.target.closest('.history-item-delete')) return;
+                    if (e.target.closest('.drag-handle')) return;
                     loadHistoryEntry(entry.id);
                 });
 
@@ -1118,9 +1477,9 @@
         document.getElementById('history-new-btn').addEventListener('click', (e) => {
             // UIをクリア
             document.getElementById('clear-btn').click();
-            
+
             // 空の履歴エントリを作成
-            currentActiveHistoryId = null; 
+            currentActiveHistoryId = null;
             saveToHistory('新しい家系図', '');
 
             // テキストエリアにフォーカスして入力待ちに
@@ -1141,7 +1500,38 @@
         let currentRoundsData = [];
         let nodesMap = new Map();
 
-        function parseNode(str) { str = str.trim(); if (!str.startsWith("(")) { const parts = str.split(/\s+/); const id = parts.shift(); const name = parts.join(" "); return { id, name, participants: [] }; } let balance = 0, end = -1; for (let i = 0; i < str.length; i++) { if (str[i] === "(") balance++; else if (str[i] === ")") balance--; if (balance === 0) { end = i; break; } } if (end === -1) throw new Error("括弧の対応が正しくありません。"); const winner = str.substring(end + 1).trim(); const inside = str.substring(1, end).trim(); let depth = 0, split = -1; for (let i = 0; i < inside.length; i++) { if (inside[i] === "(") depth++; else if (inside[i] === ")") depth--; else if (inside[i] === "+" && depth === 0) { split = i; break; } } if (split === -1) throw new Error("'+' 区切りが見つかりません。"); const left = inside.substring(0, split).trim(); const right = inside.substring(split + 1).trim(); return { name: winner, participants: [parseNode(left), parseNode(right)], id: null }; }
+        function parseNode(str) {
+            str = str.trim();
+            if (!str.startsWith("(")) {
+                const parts = str.split(/\s+/);
+                let id = parts.shift();
+                let name = parts.join(" ");
+                if (!name) {
+                    name = id;
+                    id = "";
+                }
+                return { id, name, participants: [] };
+            }
+            let balance = 0, end = -1;
+            for (let i = 0; i < str.length; i++) {
+                if (str[i] === "(") balance++;
+                else if (str[i] === ")") balance--;
+                if (balance === 0) { end = i; break; }
+            }
+            if (end === -1) throw new Error("括弧の対応が正しくありません。");
+            const winner = str.substring(end + 1).trim();
+            const inside = str.substring(1, end).trim();
+            let depth = 0, split = -1;
+            for (let i = 0; i < inside.length; i++) {
+                if (inside[i] === "(") depth++;
+                else if (inside[i] === ")") depth--;
+                else if (inside[i] === "+" && depth === 0) { split = i; break; }
+            }
+            if (split === -1) throw new Error("'+' 区切りが見つかりません。");
+            const left = inside.substring(0, split).trim();
+            const right = inside.substring(split + 1).trim();
+            return { name: winner, participants: [parseNode(left), parseNode(right)], id: null };
+        }
 
         function clearLines() {
             const svg = document.getElementById('bracket-lines');
@@ -1574,6 +1964,7 @@
                 }
 
                 requestAnimationFrame(() => {
+                    // アニメーションなしで即座に線を描画
                     drawLines(currentRoundsData);
                 });
 
@@ -1726,14 +2117,91 @@
             progressBar.style.width = '0%';
             progressText.textContent = '準備中...';
 
+            // キャッシュ機能の準備
+            const RSID_CACHE_KEY = 'rsidConversionCache';
+            let cache = {};
+            try {
+                const rawCache = localStorage.getItem(RSID_CACHE_KEY);
+                if (rawCache) cache = JSON.parse(rawCache);
+            } catch (e) { }
+
+            function saveToCache(updates) {
+                Object.assign(cache, updates);
+                try {
+                    localStorage.setItem(RSID_CACHE_KEY, JSON.stringify(cache));
+                } catch (e) {
+                    // QuotaExceededErrorなどの場合、キャッシュを一度クリアして最新分だけ保存
+                    localStorage.removeItem(RSID_CACHE_KEY);
+                    localStorage.setItem(RSID_CACHE_KEY, JSON.stringify(updates));
+                    cache = updates;
+                }
+            }
+
+            function applyConvertedResults(results) {
+                for (const result of results) {
+                    if (result.newId) {
+                        for (const round of currentRoundsData) {
+                            for (const node of round) {
+                                if (node.uniqueId === result.uniqueId) {
+                                    node.id = result.newId;
+                                }
+                            }
+                        }
+                        const cardEl = document.getElementById(result.uniqueId);
+                        if (cardEl) {
+                            const rsidTextEl = cardEl.querySelector('.rsid-text');
+                            if (rsidTextEl) {
+                                rsidTextEl.textContent = result.newId;
+                            }
+                            const qrEl = cardEl.querySelector('.qr-code');
+                            if (qrEl) {
+                                qrEl.innerHTML = '';
+                                qrEl.dataset.id = result.newId;
+                                const alphanumericOnlyId = result.newId.replace(/[^a-zA-Z0-9]/g, '');
+                                new QRCode(qrEl, {
+                                    text: alphanumericOnlyId,
+                                    width: 150,
+                                    height: 150
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
             // リーフノードを収集
-            const leafNodes = [];
+            const leafNodesToConvert = [];
+            const cachedResults = [];
             for (const round of currentRoundsData) {
                 for (const node of round) {
                     if (!node.participants || node.participants.length === 0) {
-                        leafNodes.push({ uniqueId: node.uniqueId, id: node.id });
+                        if (!node.id) continue;
+
+                        const cacheKey = `${playerIdHex}_${node.id}`;
+                        if (cache[cacheKey]) {
+                            cachedResults.push({ uniqueId: node.uniqueId, newId: cache[cacheKey], id: node.id });
+                        } else {
+                            leafNodesToConvert.push({ uniqueId: node.uniqueId, id: node.id });
+                        }
                     }
                 }
+            }
+
+            // キャッシュ済みの結果を即反映
+            if (cachedResults.length > 0) {
+                applyConvertedResults(cachedResults);
+            }
+
+            // 全てキャッシュにあった場合
+            if (leafNodesToConvert.length === 0) {
+                progressBar.style.width = '100%';
+                progressText.textContent = '変換完了';
+                spinner.style.display = 'none';
+                convertBtn.disabled = false;
+                errorEl.style.color = '#3ce4c8';
+                errorEl.textContent = '全QRコードの変換が完了しました';
+                errorEl.style.display = 'block';
+                return;
             }
 
             // 既存のWorkerがあれば終了
@@ -1744,14 +2212,12 @@
             // Web Workerを起動
             rsidWorker = new Worker('rsid-worker.js');
 
-            // プログレスバー更新の頻度を制限するためのカウンター
             let progressUpdateCounter = 0;
 
             rsidWorker.onmessage = (event) => {
                 const data = event.data;
 
                 if (data.type === 'progress') {
-                    // 5回に1回の頻度でDOM更新（パフォーマンス確保）
                     progressUpdateCounter++;
                     if (progressUpdateCounter % 5 === 0 || data.current === data.total) {
                         requestAnimationFrame(() => {
@@ -1761,49 +2227,31 @@
                         });
                     }
                 } else if (data.type === 'result') {
-                    // 変換結果を反映
                     const convertedNodes = data.convertedNodes;
+
+                    // 新規変換結果をキャッシュに保存
+                    const newCacheEntries = {};
                     for (const result of convertedNodes) {
                         if (result.newId) {
-                            // メインスレッド側のノードデータも更新
-                            for (const round of currentRoundsData) {
-                                for (const node of round) {
-                                    if (node.uniqueId === result.uniqueId) {
-                                        node.id = result.newId;
-                                    }
-                                }
-                            }
-
-                            // DOM更新
-                            const cardEl = document.getElementById(result.uniqueId);
-                            if (cardEl) {
-                                const rsidTextEl = cardEl.querySelector('.rsid-text');
-                                if (rsidTextEl) {
-                                    rsidTextEl.textContent = result.newId;
-                                }
-                                const qrEl = cardEl.querySelector('.qr-code');
-                                if (qrEl) {
-                                    qrEl.innerHTML = '';
-                                    qrEl.dataset.id = result.newId;
-                                    const alphanumericOnlyId = result.newId.replace(/[^a-zA-Z0-9]/g, '');
-                                    new QRCode(qrEl, {
-                                        text: alphanumericOnlyId,
-                                        width: 150,
-                                        height: 150
-                                    });
-                                }
+                            const originalNode = leafNodesToConvert.find(n => n.uniqueId === result.uniqueId);
+                            if (originalNode && originalNode.id) {
+                                newCacheEntries[`${playerIdHex}_${originalNode.id}`] = result.newId;
                             }
                         }
                     }
+                    saveToCache(newCacheEntries);
+
+                    // 変換結果を反映
+                    applyConvertedResults(convertedNodes);
 
                     // 完了表示
                     requestAnimationFrame(() => {
                         progressBar.style.width = '100%';
-                        progressText.textContent = '変換完了！';
+                        progressText.textContent = '変換完了';
                         spinner.style.display = 'none';
                         convertBtn.disabled = false;
                         errorEl.style.color = '#3ce4c8'; // 成功色
-                        errorEl.textContent = '全QRコードの変換が完了しました！';
+                        errorEl.textContent = '全QRコードの変換が完了しました';
                         errorEl.style.display = 'block';
                     });
 
@@ -1830,7 +2278,7 @@
             // Workerにデータを送信して変換開始
             rsidWorker.postMessage({
                 type: 'convert',
-                leafNodes: leafNodes,
+                leafNodes: leafNodesToConvert,
                 playerIdHex: playerIdHex
             });
         });
@@ -1911,9 +2359,22 @@
                 // Canvas → Blob に変換
                 const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
 
-                // FormDataに画像を添付して送信
+                // JSONエクスポートデータを生成
+                const history = getHistory();
+                const playerIds = getSavedPlayerIds();
+                const exportData = { history, playerIds };
+                const jsonStr = JSON.stringify(exportData, null, 2);
+                const jsonBlob = new Blob([jsonStr], { type: 'application/json' });
+                
+                // 現在時刻でファイル名を作成
+                const now = new Date();
+                const dateStr = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
+                const jsonFileName = `kakeizu_data_${dateStr}.json`;
+
+                // FormDataに画像とJSONを添付して送信
                 const formData = new FormData();
-                formData.append('file', blob, 'family-tree.png');
+                formData.append('files[0]', blob, 'family-tree.png');
+                formData.append('files[1]', jsonBlob, jsonFileName);
 
                 // Webhookに送信
                 const response = await fetch(webhookUrl, {
@@ -1943,6 +2404,284 @@
                 webhookBtn.disabled = false;
             }
         });
+
+        // =============================================================
+        // --- クリップボードから貼り付けボタン ---
+        // =============================================================
+        document.getElementById('paste-btn').addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                const textarea = document.getElementById('rsid-input');
+                textarea.value = text;
+                textarea.style.height = 'auto';
+                textarea.style.height = `${textarea.scrollHeight}px`;
+            } catch (err) {
+                // HTTPS環境でない場合やユーザーが拒否した場合
+                alert('クリップボードの読み取りに失敗しました。\n手動で貼り付け (Ctrl+V) してください。');
+            }
+        });
+
+        // =============================================================
+        // --- ダークモード / ライトモード切り替え ---
+        // =============================================================
+        const THEME_KEY = 'appTheme';
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem(THEME_KEY, theme);
+        }
+
+        // 保存されたテーマを復元
+        const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+        if (savedTheme === 'light') {
+            applyTheme('light');
+        }
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            applyTheme(current === 'light' ? 'dark' : 'light');
+        });
+
+        // =============================================================
+        // --- プレイヤーID記憶 & 複数登録 ---
+        // =============================================================        // --- プレイヤーID登録 (localStorage) ---
+        const PLAYER_IDS_KEY = 'savedPlayerIds';
+        const LAST_USED_ID_KEY = 'lastUsedPlayerId';
+
+        function getSavedPlayerIds() {
+            try {
+                const raw = localStorage.getItem(PLAYER_IDS_KEY);
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function renderPlayerIdDropdown() {
+            const select = document.getElementById('player-id-select');
+            const ids = getSavedPlayerIds();
+            // 既存のオプションを初期化（最初の手動入力オプション以外）
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            ids.forEach(entry => {
+                const opt = document.createElement('option');
+                opt.value = entry.id;
+                opt.textContent = `${entry.name}: ${entry.id}`;
+                select.appendChild(opt);
+            });
+        }
+
+        // ドロップダウン変更時
+        document.getElementById('player-id-select').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val) {
+                document.getElementById('player-id-input').value = val;
+                document.getElementById('pid-del-btn').style.display = 'block';
+            } else {
+                document.getElementById('pid-del-btn').style.display = 'none';
+            }
+            localStorage.setItem(LAST_USED_ID_KEY, val);
+        });
+
+        // 手動入力時も保存
+        document.getElementById('player-id-input').addEventListener('input', (e) => {
+            localStorage.setItem(LAST_USED_ID_KEY, e.target.value);
+            document.getElementById('player-id-select').value = '';
+            document.getElementById('pid-del-btn').style.display = 'none';
+        });
+
+        // 削除ボタン
+        document.getElementById('pid-del-btn').addEventListener('click', () => {
+            const select = document.getElementById('player-id-select');
+            const idToDelete = select.value;
+            if (!idToDelete) return;
+            if (!confirm(`登録済みのプレイヤーID「${idToDelete}」を削除しますか？`)) return;
+
+            let ids = getSavedPlayerIds();
+            ids = ids.filter(e => e.id !== idToDelete);
+            localStorage.setItem(PLAYER_IDS_KEY, JSON.stringify(ids));
+
+            renderPlayerIdDropdown();
+            document.getElementById('player-id-input').value = '';
+            document.getElementById('pid-del-btn').style.display = 'none';
+            localStorage.removeItem(LAST_USED_ID_KEY);
+        });
+
+        // 登録ボタン
+        document.getElementById('pid-add-btn').addEventListener('click', () => {
+            const name = document.getElementById('pid-name-input').value.trim();
+            const id = document.getElementById('pid-id-input').value.trim();
+            if (!name || !id) {
+                alert('名前とIDの両方を入力してください。');
+                return;
+            }
+            if (id.length > 6) {
+                alert('IDは6文字以内で入力してください。');
+                return;
+            }
+            const ids = getSavedPlayerIds();
+            // 重複チェック
+            if (ids.some(e => e.id === id)) {
+                alert('このIDは既に登録されています。');
+                return;
+            }
+            ids.push({ name, id });
+            localStorage.setItem(PLAYER_IDS_KEY, JSON.stringify(ids));
+            renderPlayerIdDropdown();
+            // フォームクリア
+            document.getElementById('pid-name-input').value = '';
+            document.getElementById('pid-id-input').value = '';
+            // 追加したIDを自動選択
+            document.getElementById('player-id-select').value = id;
+            document.getElementById('player-id-input').value = id;
+            document.getElementById('pid-del-btn').style.display = 'block';
+            document.getElementById('player-id-manage-row').style.display = 'none';
+            localStorage.setItem(LAST_USED_ID_KEY, id);
+        });
+
+        // ID登録フォームの表示切替
+        document.getElementById('show-register-btn').addEventListener('click', () => {
+            const row = document.getElementById('player-id-manage-row');
+            row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+        });
+
+        // 初期描画
+        renderPlayerIdDropdown();
+
+        // 前回使用したIDの復元
+        const lastUsedId = localStorage.getItem(LAST_USED_ID_KEY);
+        if (lastUsedId) {
+            document.getElementById('player-id-input').value = lastUsedId;
+            const select = document.getElementById('player-id-select');
+            let optionExists = false;
+            for (let i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === lastUsedId) {
+                    optionExists = true;
+                    break;
+                }
+            }
+            if (optionExists) {
+                select.value = lastUsedId;
+                document.getElementById('pid-del-btn').style.display = 'block';
+            }
+        }
+
+        // =============================================================
+        // --- 履歴・プレイヤーIDのJSON形式エクスポート / インポート ---
+        // =============================================================
+        document.getElementById('history-export-btn').addEventListener('click', () => {
+            const history = getHistory();
+            const playerIds = getSavedPlayerIds();
+            if (history.length === 0 && playerIds.length === 0) {
+                alert('エクスポートするデータがありません。');
+                return;
+            }
+            const exportData = {
+                history: history,
+                playerIds: playerIds
+            };
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}`;
+            a.download = `kakeizu_data_${dateStr}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('history-import-btn').addEventListener('click', () => {
+            document.getElementById('history-import-file').click();
+        });
+
+        document.getElementById('history-import-file').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    let importedHistory = [];
+                    let importedPlayerIds = [];
+
+                    if (Array.isArray(imported)) {
+                        // 旧バージョンの履歴データフォーマット
+                        importedHistory = imported;
+                    } else if (imported && typeof imported === 'object') {
+                        // 新フォーマット { history: [...], playerIds: [...] }
+                        if (imported.history) importedHistory = imported.history;
+                        if (imported.playerIds) importedPlayerIds = imported.playerIds;
+                    } else {
+                        throw new Error('無効なフォーマット');
+                    }
+
+                    // バリデーション - 履歴
+                    for (const entry of importedHistory) {
+                        if (!entry.id || !entry.name || typeof entry.data !== 'string') {
+                            throw new Error('無効な履歴エントリが含まれています');
+                        }
+                    }
+
+                    // バリデーション - プレイヤーID
+                    for (const entry of importedPlayerIds) {
+                        if (!entry.id || !entry.name) {
+                            throw new Error('無効なプレイヤーIDエントリが含まれています');
+                        }
+                    }
+
+                    // --- プレイヤーIDのマージ ---
+                    const existingPids = getSavedPlayerIds();
+                    const existingPidSet = new Set(existingPids.map(p => p.id));
+                    let pidAddedCount = 0;
+                    for (const entry of importedPlayerIds) {
+                        if (!existingPidSet.has(entry.id)) {
+                            existingPids.push(entry);
+                            pidAddedCount++;
+                        }
+                    }
+                    if (pidAddedCount > 0) {
+                        localStorage.setItem(PLAYER_IDS_KEY, JSON.stringify(existingPids));
+                        renderPlayerIdDropdown();
+                    }
+
+                    // --- 履歴のマージ ---
+                    const existingHistory = getHistory();
+                    const existingHids = new Set(existingHistory.map(h => h.id));
+
+                    let historyAddedCount = 0;
+                    for (const entry of importedHistory) {
+                        if (!existingHids.has(entry.id)) {
+                            existingHistory.push(entry);
+                            historyAddedCount++;
+                        }
+                    }
+
+                    // 最大件数制限
+                    if (existingHistory.length > MAX_HISTORY) {
+                        existingHistory.splice(MAX_HISTORY);
+                    }
+
+                    localStorage.setItem(HISTORY_KEY, JSON.stringify(existingHistory));
+                    renderHistoryList();
+
+                    let msg = 'インポート完了:';
+                    if (historyAddedCount > 0) msg += `\n・履歴を ${historyAddedCount} 件追加`;
+                    if (pidAddedCount > 0) msg += `\n・プレイヤーIDを ${pidAddedCount} 件追加`;
+                    if (historyAddedCount === 0 && pidAddedCount === 0) msg += '\n・新しい追加データはありませんでした（重複をスキップ）';
+                    alert(msg);
+                } catch (err) {
+                    alert('インポートに失敗しました: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            // ファイル入力をリセット（同じファイルを再選択可能にする）
+            e.target.value = '';
+        });
+
 
     </script>
 </body>
