@@ -1281,7 +1281,10 @@
             if (existingIndex !== -1) {
                 // 既存の履歴を更新
                 history[existingIndex].name = championName || history[existingIndex].name;
-                history[existingIndex].data = rsidData;
+                if (history[existingIndex].data !== rsidData) {
+                    history[existingIndex].data = rsidData;
+                    delete history[existingIndex].convertedPlayerId;
+                }
                 history[existingIndex].date = dateStr; // 更新日時を更新
                 if (imageUrl !== undefined) {
                     history[existingIndex].image = imageUrl;
@@ -1334,6 +1337,101 @@
          * 履歴項目を選択してRSIDをテキストエリアに読み込む
          * @param {string} entryId
          */
+        function saveConvertedPlayerIdToHistory(entryId, playerIdHex) {
+            const history = getHistory();
+            const existingIndex = history.findIndex(h => h.id === entryId);
+            if (existingIndex !== -1) {
+                history[existingIndex].convertedPlayerId = playerIdHex;
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            }
+        }
+
+        function restoreConversionState(playerIdHex) {
+            const errorEl = document.getElementById('error-message');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const convertBtn = document.getElementById('convert-rsid-btn');
+            const spinner = document.getElementById('spinner');
+
+            // プレイヤーIDの入力と選択状態を更新
+            document.getElementById('player-id-input').value = playerIdHex;
+            const select = document.getElementById('player-id-select');
+            let optionExists = false;
+            for (let i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === playerIdHex) {
+                    select.value = playerIdHex;
+                    optionExists = true;
+                    break;
+                }
+            }
+            if (optionExists) {
+                document.getElementById('pid-del-btn').style.display = 'block';
+            } else {
+                select.value = '';
+                document.getElementById('pid-del-btn').style.display = 'none';
+            }
+
+            // キャッシュから変換データを取得して適用
+            const RSID_CACHE_KEY = 'rsidConversionCache';
+            let cache = {};
+            try {
+                const rawCache = localStorage.getItem(RSID_CACHE_KEY);
+                if (rawCache) cache = JSON.parse(rawCache);
+            } catch (e) { }
+
+            const convertedResults = [];
+            for (const round of currentRoundsData) {
+                for (const node of round) {
+                    if (!node.participants || node.participants.length === 0) {
+                        const rsidForConversion = node.originalId || node.id;
+                        if (!rsidForConversion) continue;
+
+                        const cacheKey = `${playerIdHex}_${rsidForConversion}`;
+                        if (cache[cacheKey]) {
+                            convertedResults.push({ uniqueId: node.uniqueId, newId: cache[cacheKey], id: rsidForConversion });
+                        }
+                    }
+                }
+            }
+
+            if (convertedResults.length > 0) {
+                // 結果を反映
+                for (const result of convertedResults) {
+                    if (result.newId) {
+                        const cardEl = document.getElementById(result.uniqueId);
+                        if (cardEl) {
+                            const rsidTextEl = cardEl.querySelector('.rsid-text');
+                            if (rsidTextEl) {
+                                rsidTextEl.textContent = result.newId;
+                            }
+                            const qrEl = cardEl.querySelector('.qr-code');
+                            if (qrEl) {
+                                qrEl.innerHTML = '';
+                                qrEl.dataset.id = result.newId;
+                                const alphanumericOnlyId = result.newId.replace(/[^a-zA-Z0-9]/g, '');
+                                new QRCode(qrEl, {
+                                    text: alphanumericOnlyId,
+                                    width: 150,
+                                    height: 150
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // UI表示を完了状態にする
+                progressContainer.style.display = 'block';
+                progressBar.style.width = '100%';
+                progressText.textContent = '変換完了';
+                spinner.style.display = 'none';
+                convertBtn.disabled = false;
+                errorEl.style.color = '#3ce4c8';
+                errorEl.textContent = '全QRコードの変換が完了しました';
+                errorEl.style.display = 'block';
+            }
+        }
+
         // 履歴読み込み中フラグ（重複保存防止）
         let isLoadingFromHistory = false;
 
@@ -1341,6 +1439,9 @@
             const history = getHistory();
             const entry = history.find(h => h.id === entryId);
             if (!entry) return;
+
+            // 変換UIの状態を完全にリセット（前の家系図の変換状態を引き継がない）
+            resetConversionUI();
 
             currentActiveHistoryId = entryId;
 
@@ -1354,6 +1455,11 @@
             isLoadingFromHistory = true;
             if (entry.data) {
                 document.getElementById('generate-btn').click();
+
+                // 以前に変換完了していた場合、自動的にキャッシュから変換を適用してUIを維持する
+                if (entry.convertedPlayerId) {
+                    restoreConversionState(entry.convertedPlayerId);
+                }
             } else {
                 // データが空ならクリアのみ
                 document.getElementById('clear-btn').click();
@@ -1492,6 +1598,36 @@
 
         // --- Web Worker初期化（RSID変換はWorkerで実行） ---
         let rsidWorker = null;
+        // 変換セッションID（家系図切り替え時に無効化するためのガード）
+        let conversionSessionId = 0;
+
+        /**
+         * RSID変換UIの状態を完全にリセットする
+         * 家系図切り替え時や削除時に呼び出す
+         */
+        function resetConversionUI() {
+            conversionSessionId++; // 進行中の変換コールバックを無効化
+            // 実行中のWorkerがあれば終了
+            if (rsidWorker) {
+                rsidWorker.terminate();
+                rsidWorker = null;
+            }
+            const pc = document.getElementById('progress-container');
+            if (pc) pc.removeAttribute('style'); // CSSのdisplay:noneに戻す
+            const pb = document.getElementById('progress-bar');
+            if (pb) pb.removeAttribute('style');
+            const pt = document.getElementById('progress-text');
+            if (pt) pt.textContent = '準備中...';
+            const sp = document.getElementById('spinner');
+            if (sp) sp.style.display = 'none';
+            const cb = document.getElementById('convert-rsid-btn');
+            if (cb) cb.disabled = false;
+            const err = document.getElementById('error-message');
+            if (err) {
+                err.style.display = 'none';
+                err.style.color = '#f96666';
+            }
+        }
 
         function hexToBigInt(hex) {
             return BigInt('0x' + hex);
@@ -1806,6 +1942,10 @@
             container.innerHTML = '<svg id="bracket-lines"></svg>';
 
             errorEl.style.display = 'none';
+
+            // 変換UIをリセット
+            resetConversionUI();
+
             currentRoundsData = [];
             nodesMap.clear();
             if (!input) return;
@@ -1848,6 +1988,10 @@
                     if (!roundsData[depth]) roundsData[depth] = [];
                     node.uniqueId = `d${depth}_${roundsData[depth].length}`;
                     node.parentId = parentId;
+                    // リーフノードの場合、元のRSIDを保持する
+                    if (!node.participants || node.participants.length === 0) {
+                        node.originalId = node.id;
+                    }
                     roundsData[depth].push(node);
                     node.participants.forEach(p => assignDepthAndId(p, depth + 1, node.uniqueId));
                 }
@@ -2009,6 +2153,8 @@
             document.getElementById('rsid-input').value = '';
             document.getElementById('bracket-container').innerHTML = '<svg id="bracket-lines"></svg>';
             document.getElementById('error-message').style.display = 'none';
+            // 変換UIもリセット
+            resetConversionUI();
             currentRoundsData = [];
             nodesMap.clear();
         });
@@ -2117,6 +2263,9 @@
             progressBar.style.width = '0%';
             progressText.textContent = '準備中...';
 
+            // 現在の変換セッションIDを記録
+            const thisSessionId = ++conversionSessionId;
+
             // キャッシュ機能の準備
             const RSID_CACHE_KEY = 'rsidConversionCache';
             let cache = {};
@@ -2140,13 +2289,7 @@
             function applyConvertedResults(results) {
                 for (const result of results) {
                     if (result.newId) {
-                        for (const round of currentRoundsData) {
-                            for (const node of round) {
-                                if (node.uniqueId === result.uniqueId) {
-                                    node.id = result.newId;
-                                }
-                            }
-                        }
+                        // 注意: node.id（元のRSID）は書き換えない。表示のみ更新する。
                         const cardEl = document.getElementById(result.uniqueId);
                         if (cardEl) {
                             const rsidTextEl = cardEl.querySelector('.rsid-text');
@@ -2169,19 +2312,21 @@
                 }
             }
 
-            // リーフノードを収集
+            // リーフノードを収集（常に originalId を使って変換する）
             const leafNodesToConvert = [];
             const cachedResults = [];
             for (const round of currentRoundsData) {
                 for (const node of round) {
                     if (!node.participants || node.participants.length === 0) {
-                        if (!node.id) continue;
+                        // originalId を使用（元のRSIDを基に変換）
+                        const rsidForConversion = node.originalId || node.id;
+                        if (!rsidForConversion) continue;
 
-                        const cacheKey = `${playerIdHex}_${node.id}`;
+                        const cacheKey = `${playerIdHex}_${rsidForConversion}`;
                         if (cache[cacheKey]) {
-                            cachedResults.push({ uniqueId: node.uniqueId, newId: cache[cacheKey], id: node.id });
+                            cachedResults.push({ uniqueId: node.uniqueId, newId: cache[cacheKey], id: rsidForConversion });
                         } else {
-                            leafNodesToConvert.push({ uniqueId: node.uniqueId, id: node.id });
+                            leafNodesToConvert.push({ uniqueId: node.uniqueId, id: rsidForConversion });
                         }
                     }
                 }
@@ -2194,6 +2339,7 @@
 
             // 全てキャッシュにあった場合
             if (leafNodesToConvert.length === 0) {
+                if (thisSessionId !== conversionSessionId) return; // 別の家系図に切り替え済み
                 progressBar.style.width = '100%';
                 progressText.textContent = '変換完了';
                 spinner.style.display = 'none';
@@ -2201,6 +2347,10 @@
                 errorEl.style.color = '#3ce4c8';
                 errorEl.textContent = '全QRコードの変換が完了しました';
                 errorEl.style.display = 'block';
+
+                if (currentActiveHistoryId) {
+                    saveConvertedPlayerIdToHistory(currentActiveHistoryId, playerIdHex);
+                }
                 return;
             }
 
@@ -2217,6 +2367,13 @@
             rsidWorker.onmessage = (event) => {
                 const data = event.data;
 
+                // 別の家系図に切り替え済みならコールバックを無視
+                if (thisSessionId !== conversionSessionId) {
+                    rsidWorker.terminate();
+                    rsidWorker = null;
+                    return;
+                }
+
                 if (data.type === 'progress') {
                     progressUpdateCounter++;
                     if (progressUpdateCounter % 5 === 0 || data.current === data.total) {
@@ -2229,12 +2386,13 @@
                 } else if (data.type === 'result') {
                     const convertedNodes = data.convertedNodes;
 
-                    // 新規変換結果をキャッシュに保存
+                    // 新規変換結果をキャッシュに保存（originalId ベースのキーを使用）
                     const newCacheEntries = {};
                     for (const result of convertedNodes) {
                         if (result.newId) {
                             const originalNode = leafNodesToConvert.find(n => n.uniqueId === result.uniqueId);
                             if (originalNode && originalNode.id) {
+                                // originalNode.id は元のRSID（originalId）が入っている
                                 newCacheEntries[`${playerIdHex}_${originalNode.id}`] = result.newId;
                             }
                         }
@@ -2246,6 +2404,7 @@
 
                     // 完了表示
                     requestAnimationFrame(() => {
+                        if (thisSessionId !== conversionSessionId) return; // 別の家系図に切り替え済み
                         progressBar.style.width = '100%';
                         progressText.textContent = '変換完了';
                         spinner.style.display = 'none';
@@ -2253,6 +2412,10 @@
                         errorEl.style.color = '#3ce4c8'; // 成功色
                         errorEl.textContent = '全QRコードの変換が完了しました';
                         errorEl.style.display = 'block';
+
+                        if (currentActiveHistoryId) {
+                            saveConvertedPlayerIdToHistory(currentActiveHistoryId, playerIdHex);
+                        }
                     });
 
                     // Workerを終了
