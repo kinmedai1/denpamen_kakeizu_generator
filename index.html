@@ -1215,6 +1215,58 @@
             opacity: 0.85;
             white-space: nowrap;
         }
+
+        /* --- 履歴項目ホバーツールチップ --- */
+        .history-item {
+            position: relative;
+        }
+
+        .history-tooltip {
+            display: none;
+            position: absolute;
+            left: 270px; /* サイドバーの右側に表示（サイドバー幅260px + 余白10px） */
+            top: 50%;
+            transform: translateY(-50%);
+            width: 220px;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            color: #fff;
+            font-size: 13px;
+            pointer-events: none; /* マウスイベントを透過 */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); /* 文字の視認性向上 */
+            box-sizing: border-box;
+            line-height: 1.5;
+        }
+
+        .history-item:hover .history-tooltip {
+            display: block;
+        }
+
+        .history-tooltip-title {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 4px;
+        }
+
+        .history-tooltip-row {
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .history-tooltip-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .history-tooltip-label {
+            opacity: 0.8;
+            font-weight: bold;
+        }
     </style>
 </head>
 
@@ -1357,8 +1409,9 @@
          * 履歴をlocalStorageに保存（または更新）する
          * @param {string} championName - チャンピオン名
          * @param {string} rsidData - RSIDテキストデータ
+         * @param {string} [statusText] - アンテナや柄などのステータス文字列
          */
-        function saveToHistory(championName, rsidData) {
+        function saveToHistory(championName, rsidData, statusText) {
             const history = getHistory();
             const now = new Date();
             const dateStr = `${now.getFullYear()}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -1378,6 +1431,9 @@
                 }
                 history[existingIndex].date = dateStr; // 更新日時を更新
                 history[existingIndex].image = null; // 画像は保存しない
+                if (statusText !== undefined) {
+                    history[existingIndex].statusText = statusText;
+                }
             } else {
                 // 新規作成
                 const entry = {
@@ -1385,7 +1441,8 @@
                     name: championName,
                     data: rsidData,
                     date: dateStr,
-                    image: null
+                    image: null,
+                    statusText: statusText || null
                 };
                 currentActiveHistoryId = entry.id; // アクティブにする
                 history.unshift(entry);
@@ -1591,6 +1648,47 @@
 
             if (emptyEl) emptyEl.style.display = 'none';
 
+            // 状態パース用ヘルパー
+            const parseStatus = (statusText) => {
+                if (!statusText) return null;
+                const res = { antenna: 'なし', head: '普通', size: '普通', correction: 'なし', colors: [] };
+                
+                // アンテナ:
+                const antennaMatch = statusText.match(/アンテナ:([^\s]+)/);
+                if (antennaMatch) res.antenna = antennaMatch[1];
+                
+                // 頭:
+                const headMatch = statusText.match(/頭:([^\s]+)/);
+                if (headMatch) res.head = headMatch[1];
+                
+                // 体格:
+                const sizeMatch = statusText.match(/体格:([^\s]+)/);
+                if (sizeMatch) res.size = sizeMatch[1];
+                
+                // 補正:
+                const correctionMatch = statusText.match(/補正:([^\s]+)/);
+                if (correctionMatch) res.correction = correctionMatch[1];
+                
+                // 色:
+                const colorMatch = statusText.match(/色:([\s\S]+?)(?=柄:|髪:|髪色:|肌色:|眉:|目:|鼻:|頬:|口:|$)/);
+                if (colorMatch) {
+                    res.colors = colorMatch[1].trim().split(/\s+/).map(c => c.trim()).filter(Boolean);
+                }
+                
+                return res;
+            };
+
+            const getGradientBackground = (colors) => {
+                if (!colors || colors.length === 0) {
+                    return 'linear-gradient(135deg, #3a3a50, #2c2c3e)'; // デフォルト背景
+                }
+                const hexColors = colors.map(c => COLOR_MAP[c] || COLOR_MAP['通常' + c] || '#3a3a50');
+                if (hexColors.length === 1) {
+                    return `linear-gradient(135deg, ${hexColors[0]}, ${hexColors[0]}dd)`;
+                }
+                return `linear-gradient(135deg, ${hexColors.join(', ')})`;
+            };
+
             let dragSrcEl = null;
 
             history.forEach((entry, idx) => {
@@ -1604,12 +1702,29 @@
                     item.classList.add('active');
                 }
 
+                // ツールチップHTMLの生成
+                let tooltipHtml = '';
+                const details = parseStatus(entry.statusText);
+                if (details) {
+                    const bgGradient = getGradientBackground(details.colors);
+                    tooltipHtml = `
+                        <div class="history-tooltip" style="background: ${bgGradient};">
+                            <div class="history-tooltip-title">${entry.name} の特徴</div>
+                            <div class="history-tooltip-row"><span class="history-tooltip-label">アンテナ</span><span>${details.antenna}</span></div>
+                            <div class="history-tooltip-row"><span class="history-tooltip-label">頭の形</span><span>${details.head}</span></div>
+                            <div class="history-tooltip-row"><span class="history-tooltip-label">体格</span><span>${details.size}</span></div>
+                            <div class="history-tooltip-row"><span class="history-tooltip-label">補正</span><span>${details.correction}</span></div>
+                        </div>
+                    `;
+                }
+
                 item.innerHTML = `
                 <span class="drag-handle">☰</span>
                 <div class="history-item-info">
                     <div class="history-item-name" title="${entry.name}">${entry.name}</div>
                     <div class="history-item-date">${entry.date}</div>
                 </div>
+                ${tooltipHtml}
                 <button class="history-item-delete" title="削除">✕</button>
             `;
 
@@ -2365,7 +2480,7 @@
                 // --- 履歴をlocalStorageに保存（履歴からの読み込み時はスキップ） ---
                 if (!isLoadingFromHistory) {
                     const championName = tree.name || '名称不明';
-                    saveToHistory(championName, input);
+                    saveToHistory(championName, input, statusString);
                 }
                 isLoadingFromHistory = false;
 
