@@ -1604,13 +1604,8 @@
                     item.classList.add('active');
                 }
 
-                const iconHtml = entry.image
-                    ? `<div class="history-item-icon" style="background: transparent;"><img src="${entry.image}" style="width: 100%; height: 100%; object-fit: contain;"></div>`
-                    : `<div class="history-item-icon">🌳</div>`;
-
                 item.innerHTML = `
                 <span class="drag-handle">☰</span>
-                ${iconHtml}
                 <div class="history-item-info">
                     <div class="history-item-name" title="${entry.name}">${entry.name}</div>
                     <div class="history-item-date">${entry.date}</div>
