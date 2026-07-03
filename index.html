@@ -94,6 +94,7 @@
             transition: background-color 0.2s ease, transform 0.15s ease;
             gap: 10px;
             border: 1px solid transparent;
+            box-sizing: border-box;
         }
 
         .history-item:hover {
@@ -139,12 +140,16 @@
         }
 
         .history-item-delete {
-            width: 24px;
-            height: 24px;
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 32px;
+            height: 100%;
             border-radius: 4px;
             background: transparent;
             border: none;
-            color: var(--text-muted);
+            color: #fff;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
             cursor: pointer;
             font-size: 14px;
             display: flex;
@@ -160,8 +165,8 @@
         }
 
         .history-item-delete:hover {
-            background-color: rgba(249, 102, 102, 0.2);
-            color: #f96666;
+            background-color: rgba(0, 0, 0, 0.3);
+            color: #ff8b8b;
         }
 
         /* --- 新規作成アイテム (+ボタン) --- */
@@ -1217,39 +1222,29 @@
         }
 
         /* --- 履歴項目ホバーツールチップ --- */
-        .history-item {
-            position: relative;
-        }
-
         .history-tooltip {
             display: none;
-            position: absolute;
-            left: 270px; /* サイドバーの右側に表示（サイドバー幅260px + 余白10px） */
-            top: 50%;
-            transform: translateY(-50%);
+            position: fixed; /* fixedに変更してサイドバーのoverflow制限を回避 */
             width: 220px;
             padding: 12px;
             border-radius: 8px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-            z-index: 9999;
+            z-index: 99999; /* 最前面に配置 */
+            background: #2c2c3e; /* 固定のダーク背景 */
             color: #fff;
             font-size: 13px;
             pointer-events: none; /* マウスイベントを透過 */
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); /* 文字の視認性向上 */
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
             box-sizing: border-box;
             line-height: 1.5;
-        }
-
-        .history-item:hover .history-tooltip {
-            display: block;
         }
 
         .history-tooltip-title {
             font-weight: 700;
             font-size: 14px;
             margin-bottom: 8px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
             padding-bottom: 4px;
         }
 
@@ -1257,6 +1252,7 @@
             margin-bottom: 4px;
             display: flex;
             justify-content: space-between;
+            align-items: center;
         }
 
         .history-tooltip-row:last-child {
@@ -1266,6 +1262,31 @@
         .history-tooltip-label {
             opacity: 0.8;
             font-weight: bold;
+        }
+
+        /* --- 電波人間カラー表示用のバッジ --- */
+        .color-indicator {
+            width: 84px; /* さらに1.5倍の幅に拡大（約84px） */
+            height: auto;
+            align-self: stretch; /* 履歴枠全体の高さいっぱいに伸ばす */
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            flex-shrink: 0;
+            box-sizing: border-box;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ツールチップ内のカラーバッジ用 (タイトル横の長方形) */
+        .tooltip-color-indicator {
+            width: 86px;
+            height: 18px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            flex-shrink: 0;
+            box-sizing: border-box;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
     </style>
 </head>
@@ -1385,7 +1406,13 @@
         <button id="modal-next" class="modal-nav-btn modal-nav-next" title="次へ">&#10095;</button>
     </div>
 
+    <div id="global-history-tooltip" class="history-tooltip"></div>
+
     <script>
+        // --- 色と柄の定数マッピング ---
+        const COLOR_MAP = { "黒": "#2c2c2c", "濃黒": "#000000", "薄黒": "#696969", "赤": "#e60012", "濃赤": "#a2000b", "薄赤": "#f19ca3", "水色": "#00a0e9", "濃水色": "#0072a6", "薄水色": "#89c3eb", "緑": "#009944", "濃緑": "#00672e", "薄緑": "#8ac59f", "橙": "#f39800", "濃橙": "#ab6a00", "薄橙": "#f9c988", "黄色": "#fff100", "濃黄色": "#b2a900", "薄黄色": "#fff888", "青": "#0068b7", "濃青": "#00477f", "薄青": "#89b2d3", "白": "#ffffff", "濃白": "#f0f0f0", "薄白": "#ffffff", "紫": "#8f4e9d", "濃紫": "#64366d", "薄紫": "#c3a5cb", "桃": "#e4007f", "濃桃": "#a00059", "薄桃": "#ef89ba", "金": "#b59e38", "濃金": "#7e6e27", "薄金": "#d3c285", "銀": "#8a8c8e", "濃銀": "#6062a3", "薄銀": "#c2c3c4", "通常黒": "#2c2c2c", "通常赤": "#e60012", "通常水色": "#00a0e9", "通常緑": "#009944", "通常橙": "#f39800", "通常黄色": "#fff100", "通常青": "#0068b7", "通常白": "#ffffff", "通常紫": "#8f4e9d", "通常桃": "#e4007f", "通常金": "#b59e38", "通常銀": "#8a8c8e" };
+        const PATTERN_RANK_MAP = { 'なし': 'D(単色)', 'ツートン': 'C', 'ボーダー': 'C', 'ストライプ': 'C', '水玉': 'C', 'アニマル': 'C', '斜めボーダー': 'C', 'ギンガムチェック': 'B', 'ダイヤ': 'B', '鱗文': 'B', 'シェブロン': 'B', 'バブルドット': 'B', 'スペード': 'B', 'ピンドット': 'A', 'レンガ': 'A', 'スプラッシュ': 'A', 'マーブル': 'A', 'ヘビ': 'A', 'しずく': 'A', 'うろこ': 'A', 'トラ': 'S', '花': 'S', '星': 'S' };
+
         // --- 履歴管理 (localStorage) ---
         const HISTORY_KEY = 'rsidHistory';
         const MAX_HISTORY = 50; // 最大保存件数
@@ -1638,6 +1665,10 @@
             const emptyEl = document.getElementById('history-empty');
             const history = getHistory();
 
+            // 描画開始時にツールチップを一旦非表示にする（残存バグ防止）
+            const tooltip = document.getElementById('global-history-tooltip');
+            if (tooltip) tooltip.style.display = 'none';
+
             // 既存の項目をクリア（empty要素は保持）
             listEl.querySelectorAll('.history-item').forEach(el => el.remove());
 
@@ -1650,8 +1681,8 @@
 
             // 状態パース用ヘルパー
             const parseStatus = (statusText) => {
-                if (!statusText) return null;
-                const res = { antenna: 'なし', head: '普通', size: '普通', correction: 'なし', colors: [] };
+                const res = { antenna: 'なし', head: '普通', size: '普通', correction: 'なし', colors: [], pattern: 'なし' };
+                if (!statusText) return res;
                 
                 // アンテナ:
                 const antennaMatch = statusText.match(/アンテナ:([^\s]+)/);
@@ -1667,26 +1698,48 @@
                 
                 // 補正:
                 const correctionMatch = statusText.match(/補正:([^\s]+)/);
-                if (correctionMatch) res.correction = correctionMatch[1];
+                if (correctionMatch) {
+                    res.correction = correctionMatch[1];
+                } else {
+                    const correctionMatch2 = statusText.match(/([^\s]+補正)/);
+                    if (correctionMatch2) {
+                        res.correction = correctionMatch2[1];
+                    }
+                }
                 
                 // 色:
                 const colorMatch = statusText.match(/色:([\s\S]+?)(?=柄:|髪:|髪色:|肌色:|眉:|目:|鼻:|頬:|口:|$)/);
                 if (colorMatch) {
                     res.colors = colorMatch[1].trim().split(/\s+/).map(c => c.trim()).filter(Boolean);
                 }
+
+                // 柄:
+                const patternMatch = statusText.match(/柄:([^\s]+)/);
+                if (patternMatch) res.pattern = patternMatch[1];
                 
                 return res;
             };
 
             const getGradientBackground = (colors) => {
                 if (!colors || colors.length === 0) {
-                    return 'linear-gradient(135deg, #3a3a50, #2c2c3e)'; // デフォルト背景
+                    return 'linear-gradient(135deg, #3a3a50 50%, #2c2c3e 50%)'; // デフォルト背景を対角線で分ける
                 }
                 const hexColors = colors.map(c => COLOR_MAP[c] || COLOR_MAP['通常' + c] || '#3a3a50');
                 if (hexColors.length === 1) {
-                    return `linear-gradient(135deg, ${hexColors[0]}, ${hexColors[0]}dd)`;
+                    return hexColors[0]; // 1色の場合は無理に分割せず単一色にする
                 }
-                return `linear-gradient(135deg, ${hexColors.join(', ')})`;
+                if (hexColors.length === 2) {
+                    return `linear-gradient(135deg, ${hexColors[0]} 50%, ${hexColors[1]} 50%)`; // 2色を対角線でクッキリ分ける
+                }
+                const stops = [];
+                const step = 100 / hexColors.length;
+                for (let i = 0; i < hexColors.length; i++) {
+                    const start = i * step;
+                    const end = (i + 1) * step;
+                    stops.push(`${hexColors[i]} ${start}%`);
+                    stops.push(`${hexColors[i]} ${end}%`);
+                }
+                return `linear-gradient(135deg, ${stops.join(', ')})`;
             };
 
             let dragSrcEl = null;
@@ -1702,20 +1755,51 @@
                     item.classList.add('active');
                 }
 
-                // ツールチップHTMLの生成
-                let tooltipHtml = '';
+                // 配色とホバー時詳細ポップアップの動的設定
                 const details = parseStatus(entry.statusText);
+                let colorIndicatorHtml = '';
                 if (details) {
                     const bgGradient = getGradientBackground(details.colors);
-                    tooltipHtml = `
-                        <div class="history-tooltip" style="background: ${bgGradient};">
+                    colorIndicatorHtml = `<div class="color-indicator" style="background: ${bgGradient};"><button class="history-item-delete" title="削除">✕</button></div>`;
+
+                    item.addEventListener('mouseenter', () => {
+                        const tooltip = document.getElementById('global-history-tooltip');
+                        if (!tooltip) return;
+
+                        const patternRankText = (details.pattern && details.pattern !== 'なし') 
+                            ? `${PATTERN_RANK_MAP[details.pattern] || '不明'}(${details.pattern})` 
+                            : 'なし';
+
+                        tooltip.innerHTML = `
                             <div class="history-tooltip-title">${entry.name} の特徴</div>
+                            <div class="history-tooltip-row">
+                                <span class="history-tooltip-label">色</span>
+                                <div class="tooltip-color-indicator" style="background: ${bgGradient};"></div>
+                            </div>
+                            <div class="history-tooltip-row">
+                                <span class="history-tooltip-label">柄ランク</span>
+                                <span>${patternRankText}</span>
+                            </div>
                             <div class="history-tooltip-row"><span class="history-tooltip-label">アンテナ</span><span>${details.antenna}</span></div>
                             <div class="history-tooltip-row"><span class="history-tooltip-label">頭の形</span><span>${details.head}</span></div>
                             <div class="history-tooltip-row"><span class="history-tooltip-label">体格</span><span>${details.size}</span></div>
                             <div class="history-tooltip-row"><span class="history-tooltip-label">補正</span><span>${details.correction}</span></div>
-                        </div>
-                    `;
+                        `;
+
+                        // 位置計算（fixed配置のためウィンドウ絶対座標を使用）
+                        const rect = item.getBoundingClientRect();
+                        tooltip.style.left = `${rect.right + 10}px`;
+                        tooltip.style.top = `${rect.top + rect.height / 2}px`;
+                        tooltip.style.transform = 'translateY(-50%)';
+                        tooltip.style.display = 'block';
+                    });
+
+                    item.addEventListener('mouseleave', () => {
+                        const tooltip = document.getElementById('global-history-tooltip');
+                        if (tooltip) {
+                            tooltip.style.display = 'none';
+                        }
+                    });
                 }
 
                 item.innerHTML = `
@@ -1724,8 +1808,7 @@
                     <div class="history-item-name" title="${entry.name}">${entry.name}</div>
                     <div class="history-item-date">${entry.date}</div>
                 </div>
-                ${tooltipHtml}
-                <button class="history-item-delete" title="削除">✕</button>
+                ${colorIndicatorHtml}
             `;
 
                 // ドラッグ＆ドロップイベント
@@ -2005,8 +2088,6 @@
         }
 
         function applyFaceParts(championCardId, statusText) { const championEl = document.getElementById(championCardId); if (!championEl) return; const partAndColorConfig = { "髪色": { selector: '.hair-color-box', folder: '髪色画像' }, "肌色": { selector: '.skin-color-box', folder: '肌色画像' }, "髪": { selector: '.preview-kami-rinkaku', folder: '髪・輪郭画像' }, "眉": { selector: '.preview-mayu', folder: '眉画像' }, "目": { selector: '.preview-me', folder: '目画像' }, "鼻": { selector: '.preview-hana', folder: '鼻画像' }, "頬": { selector: '.preview-hoo', folder: '頬画像' }, "口": { selector: '.preview-kuchi', folder: '口画像' } }; for (const config of Object.values(partAndColorConfig)) { const element = championEl.querySelector(config.selector); if (element) { element.style.backgroundImage = 'none'; } } if (statusText) { for (const [key, config] of Object.entries(partAndColorConfig)) { const regex = new RegExp(`${key}:(\\d+)`); const match = statusText.match(regex); if (match && match[1]) { const partNumber = match[1]; const element = championEl.querySelector(config.selector); if (element) { element.style.backgroundImage = `url('${config.folder}/${partNumber}.png')`; } } } } }
-        const COLOR_MAP = { "黒": "#2c2c2c", "濃黒": "#000000", "薄黒": "#696969", "赤": "#e60012", "濃赤": "#a2000b", "薄赤": "#f19ca3", "水色": "#00a0e9", "濃水色": "#0072a6", "薄水色": "#89c3eb", "緑": "#009944", "濃緑": "#00672e", "薄緑": "#8ac59f", "橙": "#f39800", "濃橙": "#ab6a00", "薄橙": "#f9c988", "黄色": "#fff100", "濃黄色": "#b2a900", "薄黄色": "#fff888", "青": "#0068b7", "濃青": "#00477f", "薄青": "#89b2d3", "白": "#ffffff", "濃白": "#f0f0f0", "薄白": "#ffffff", "紫": "#8f4e9d", "濃紫": "#64366d", "薄紫": "#c3a5cb", "桃": "#e4007f", "濃桃": "#a00059", "薄桃": "#ef89ba", "金": "#b59e38", "濃金": "#7e6e27", "薄金": "#d3c285", "銀": "#8a8c8e", "濃銀": "#6062a3", "薄銀": "#c2c3c4", "通常黒": "#2c2c2c", "通常赤": "#e60012", "通常水色": "#00a0e9", "通常緑": "#009944", "通常橙": "#f39800", "通常黄色": "#fff100", "通常青": "#0068b7", "通常白": "#ffffff", "通常紫": "#8f4e9d", "通常桃": "#e4007f", "通常金": "#b59e38", "通常銀": "#8a8c8e" };
-        const PATTERN_RANK_MAP = { 'なし': 'D(単色)', 'ツートン': 'C', 'ボーダー': 'C', 'ストライプ': 'C', '水玉': 'C', 'アニマル': 'C', '斜めボーダー': 'C', 'ギンガムチェック': 'B', 'ダイヤ': 'B', '鱗文': 'B', 'シェブロン': 'B', 'バブルドット': 'B', 'スペード': 'B', 'ピンドット': 'A', 'レンガ': 'A', 'スプラッシュ': 'A', 'マーブル': 'A', 'ヘビ': 'A', 'しずく': 'A', 'うろこ': 'A', 'トラ': 'S', '花': 'S', '星': 'S' };
         function applyAppearanceInfo(championCardId, statusText) { const championEl = document.getElementById(championCardId); const paletteContainer = championEl.querySelector('.custom-color-palette'); if (!paletteContainer) return; paletteContainer.innerHTML = ''; if (!statusText) return; const colorMatch = statusText.match(/色:([\s\S]*?)(柄:|髪:|髪色:|肌色:|眉:|目:|鼻:|頬:|口:|$)/); if (colorMatch && colorMatch[1]) { const colorNames = colorMatch[1].trim().split(/\s+/); colorNames.forEach(name => { if (COLOR_MAP[name]) { const item = document.createElement('div'); item.className = 'palette-item'; const box = document.createElement('div'); box.className = 'palette-color-box'; box.style.backgroundColor = COLOR_MAP[name]; const text = document.createTextNode(name); item.appendChild(box); item.appendChild(text); paletteContainer.appendChild(item); } }); } const patternMatch = statusText.match(/柄:([\s\S]*?)(髪:|髪色:|肌色:|眉:|目:|鼻:|頬:|口:|$)/); if (patternMatch && patternMatch[1]) { const patternName = patternMatch[1].trim(); const rank = PATTERN_RANK_MAP[patternName]; if (rank) { const item = document.createElement('div'); item.className = 'palette-item pattern-rank'; item.textContent = `柄ランク:${rank}`; let borderColor = 'var(--primary-accent)'; if (rank === 'D(単色)') { borderColor = '#FFFFFF'; } else if (rank === 'C') { borderColor = '#90EE90'; } else if (rank === 'B') { borderColor = '#ADD8E6'; } else if (rank === 'A') { borderColor = '#F08080'; } item.style.borderColor = borderColor; paletteContainer.appendChild(item); } } }
         // --- 折り畳み状態の保存ヘルパー ---
         function saveCollapseStateToHistory() {
