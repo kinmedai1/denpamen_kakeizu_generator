@@ -1357,9 +1357,8 @@
          * 履歴をlocalStorageに保存（または更新）する
          * @param {string} championName - チャンピオン名
          * @param {string} rsidData - RSIDテキストデータ
-         * @param {string} [imageUrl] - 顔画像のDataURL
          */
-        function saveToHistory(championName, rsidData, imageUrl) {
+        function saveToHistory(championName, rsidData) {
             const history = getHistory();
             const now = new Date();
             const dateStr = `${now.getFullYear()}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -1378,9 +1377,7 @@
                     delete history[existingIndex].convertedPlayerId;
                 }
                 history[existingIndex].date = dateStr; // 更新日時を更新
-                if (imageUrl !== undefined) {
-                    history[existingIndex].image = imageUrl;
-                }
+                history[existingIndex].image = null; // 画像は保存しない
             } else {
                 // 新規作成
                 const entry = {
@@ -1388,7 +1385,7 @@
                     name: championName,
                     data: rsidData,
                     date: dateStr,
-                    image: imageUrl || null
+                    image: null
                 };
                 currentActiveHistoryId = entry.id; // アクティブにする
                 history.unshift(entry);
@@ -1399,7 +1396,12 @@
                 history.splice(MAX_HISTORY);
             }
 
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            try {
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            } catch (e) {
+                console.error('履歴の保存に失敗しました(容量不足など):', e);
+                alert('ブラウザの容量不足のため、履歴を保存できませんでした。不要な履歴を削除してください。');
+            }
             renderHistoryList();
         }
 
@@ -2368,31 +2370,7 @@
                 // --- 履歴をlocalStorageに保存（履歴からの読み込み時はスキップ） ---
                 if (!isLoadingFromHistory) {
                     const championName = tree.name || '名称不明';
-
-                    if (championNode) {
-                        const championEl = document.getElementById(championNode.uniqueId);
-                        const faceContainer = championEl ? championEl.querySelector('.face-preview-container') : null;
-
-                        if (faceContainer) {
-                            // 少し待ってからキャプチャ（レンダリング完了を待つ）
-                            setTimeout(() => {
-                                html2canvas(faceContainer, {
-                                    backgroundColor: null,
-                                    scale: 1
-                                }).then(canvas => {
-                                    const imageUrl = canvas.toDataURL('image/png');
-                                    saveToHistory(championName, input, imageUrl);
-                                }).catch(err => {
-                                    console.error('履歴画像キャプチャエラー:', err);
-                                    saveToHistory(championName, input);
-                                });
-                            }, 100);
-                        } else {
-                            saveToHistory(championName, input);
-                        }
-                    } else {
-                        saveToHistory(championName, input);
-                    }
+                    saveToHistory(championName, input);
                 }
                 isLoadingFromHistory = false;
 
@@ -2536,7 +2514,11 @@
                 } catch (e) {
                     // QuotaExceededErrorなどの場合、キャッシュを一度クリアして最新分だけ保存
                     localStorage.removeItem(RSID_CACHE_KEY);
-                    localStorage.setItem(RSID_CACHE_KEY, JSON.stringify(updates));
+                    try {
+                        localStorage.setItem(RSID_CACHE_KEY, JSON.stringify(updates));
+                    } catch (e2) {
+                        console.error('キャッシュの保存に失敗しました(容量不足):', e2);
+                    }
                     cache = updates;
                 }
             }
