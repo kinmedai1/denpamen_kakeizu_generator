@@ -1438,58 +1438,45 @@
             });
         }
 
-        async function idbGet(storeName, key) {
+        async function migrateFromIndexedDB() {
             try {
+                if (localStorage.getItem('idb_to_local_migrated') === 'true') return;
                 const db = await openDB();
-                return new Promise((resolve, reject) => {
-                    const tx = db.transaction(storeName, 'readonly');
-                    const store = tx.objectStore(storeName);
-                    const req = store.get(key);
-                    req.onsuccess = () => resolve(req.result ? req.result.data : null);
-                    req.onerror = () => reject(req.error);
+                
+                await new Promise((resolve) => {
+                    const txHistory = db.transaction(STORE_HISTORY, 'readonly');
+                    const storeHistory = txHistory.objectStore(STORE_HISTORY);
+                    const reqHistory = storeHistory.get('main');
+                    reqHistory.onsuccess = () => {
+                        if (reqHistory.result && reqHistory.result.data) {
+                            if (!localStorage.getItem('rsidHistory')) {
+                                localStorage.setItem('rsidHistory', JSON.stringify(reqHistory.result.data));
+                            }
+                        }
+                        resolve();
+                    };
+                    reqHistory.onerror = () => resolve();
                 });
-            } catch (e) {
-                console.error(`IDB Get Error [${storeName}]:`, e);
-                return null;
-            }
-        }
 
-        async function idbPut(storeName, key, data) {
-            try {
-                const db = await openDB();
-                return new Promise((resolve, reject) => {
-                    const tx = db.transaction(storeName, 'readwrite');
-                    const store = tx.objectStore(storeName);
-                    const req = store.put({ key, data });
-                    req.onsuccess = () => resolve();
-                    req.onerror = () => reject(req.error);
+                await new Promise((resolve) => {
+                    const txCache = db.transaction(STORE_CACHE, 'readonly');
+                    const storeCache = txCache.objectStore(STORE_CACHE);
+                    const reqCache = storeCache.get('main');
+                    reqCache.onsuccess = () => {
+                        if (reqCache.result && reqCache.result.data) {
+                            if (!localStorage.getItem('rsidConversionCache')) {
+                                localStorage.setItem('rsidConversionCache', JSON.stringify(reqCache.result.data));
+                            }
+                        }
+                        resolve();
+                    };
+                    reqCache.onerror = () => resolve();
                 });
+                
+                localStorage.setItem('idb_to_local_migrated', 'true');
             } catch (e) {
-                console.error(`IDB Put Error [${storeName}]:`, e);
+                console.error('データのマイグレーションに失敗しました:', e);
             }
-        }
-
-        async function migrateFromLocalStorage() {
-            let migrated = false;
-            // 履歴データのマイグレーション
-            const rawHistory = localStorage.getItem('rsidHistory');
-            if (rawHistory) {
-                try {
-                    await idbPut(STORE_HISTORY, 'main', JSON.parse(rawHistory));
-                    localStorage.removeItem('rsidHistory');
-                    migrated = true;
-                } catch (e) {}
-            }
-            // キャッシュデータのマイグレーション
-            const rawCache = localStorage.getItem('rsidConversionCache');
-            if (rawCache) {
-                try {
-                    await idbPut(STORE_CACHE, 'main', JSON.parse(rawCache));
-                    localStorage.removeItem('rsidConversionCache');
-                    migrated = true;
-                } catch (e) {}
-            }
-            return migrated;
         }
 
         // --- 履歴管理 (IndexedDB) ---
@@ -1500,9 +1487,13 @@
          * IndexedDBから履歴配列を取得する
          * @returns {Promise<Array<{id: string, name: string, data: string, date: string}>>}
          */
-        async function getHistory() {
-            const data = await idbGet(STORE_HISTORY, 'main');
-            return data || [];
+        function getHistory() {
+            try {
+                const data = localStorage.getItem('rsidHistory');
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                return [];
+            }
         }
 
         /**
@@ -1511,8 +1502,8 @@
          * @param {string} rsidData - RSIDテキストデータ
          * @param {string} [statusText] - アンテナや柄などのステータス文字列
          */
-        async function saveToHistory(championName, rsidData, statusText) {
-            const history = await getHistory();
+        function saveToHistory(championName, rsidData, statusText) {
+            const history = getHistory();
             const now = new Date();
             const dateStr = `${now.getFullYear()}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
@@ -1554,61 +1545,50 @@
             }
 
             try {
-                await idbPut(STORE_HISTORY, 'main', history);
+                localStorage.setItem('rsidHistory', JSON.stringify(history));
             } catch (e) {
                 console.error('履歴の保存に失敗しました:', e);
                 alert('ブラウザの容量不足のため、履歴を保存できませんでした。不要な履歴を削除してください。');
             }
-            await renderHistoryList();
+            renderHistoryList();
         }
 
         /**
          * 指定IDの履歴を削除する
          * @param {string} entryId
          */
-        async function deleteHistoryEntry(entryId) {
-            let history = await getHistory();
+        function deleteHistoryEntry(entryId) {
+            let history = getHistory();
             history = history.filter(h => h.id !== entryId);
             if (currentActiveHistoryId === entryId) {
                 currentActiveHistoryId = null;
             }
-            await idbPut(STORE_HISTORY, 'main', history);
-            await renderHistoryList();
+            localStorage.setItem('rsidHistory', JSON.stringify(history));
+            renderHistoryList();
         }
 
         /**
          * 全履歴を削除する
          */
-        async function clearAllHistory() {
-            try {
-                const db = await openDB();
-                await new Promise((resolve, reject) => {
-                    const tx = db.transaction(STORE_HISTORY, 'readwrite');
-                    const store = tx.objectStore(STORE_HISTORY);
-                    const req = store.delete('main');
-                    req.onsuccess = () => resolve();
-                    req.onerror = () => reject(req.error);
-                });
-            } catch (e) {
-                console.error('履歴のクリアに失敗しました:', e);
-            }
-            await renderHistoryList();
+        function clearAllHistory() {
+            localStorage.removeItem('rsidHistory');
+            renderHistoryList();
         }
 
         /**
          * 履歴項目を選択してRSIDをテキストエリアに読み込む
          * @param {string} entryId
          */
-        async function saveConvertedPlayerIdToHistory(entryId, playerIdHex) {
-            const history = await getHistory();
+        function saveConvertedPlayerIdToHistory(entryId, playerIdHex) {
+            const history = getHistory();
             const existingIndex = history.findIndex(h => h.id === entryId);
             if (existingIndex !== -1) {
                 history[existingIndex].convertedPlayerId = playerIdHex;
-                await idbPut(STORE_HISTORY, 'main', history);
+                localStorage.setItem('rsidHistory', JSON.stringify(history));
             }
         }
 
-        async function restoreConversionState(playerIdHex) {
+        function restoreConversionState(playerIdHex) {
             const errorEl = document.getElementById('error-message');
             const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('progress-bar');
@@ -1635,7 +1615,7 @@
             }
 
             // キャッシュから変換データを取得して適用
-            let cache = await idbGet(STORE_CACHE, 'main');
+            let cache; try { cache = JSON.parse(localStorage.getItem('rsidConversionCache')); } catch(e){} if(!cache) cache = {};
             if (!cache) cache = {};
 
             const convertedResults = [];
@@ -1693,8 +1673,8 @@
         // 履歴読み込み中フラグ（重複保存防止）
         let isLoadingFromHistory = false;
 
-        async function loadHistoryEntry(entryId) {
-            const history = await getHistory();
+        function loadHistoryEntry(entryId) {
+            const history = getHistory();
             const entry = history.find(h => h.id === entryId);
             if (!entry) return;
 
@@ -1728,22 +1708,22 @@
 
                 // 以前に変換完了していた場合、自動的にキャッシュから変換を適用してUIを維持する
                 if (entry.convertedPlayerId) {
-                    await restoreConversionState(entry.convertedPlayerId);
+                    restoreConversionState(entry.convertedPlayerId);
                 }
             } else {
                 // データが空ならクリアのみ
                 document.getElementById('clear-btn').click();
             }
-            await renderHistoryList(); // activeクラスをつけるため
+            renderHistoryList(); // activeクラスをつけるため
         }
 
         /**
          * サイドバーの履歴リストを再描画する
          */
-        async function renderHistoryList() {
+        function renderHistoryList() {
             const listEl = document.getElementById('history-list');
             const emptyEl = document.getElementById('history-empty');
-            const history = await getHistory();
+            const history = getHistory();
 
             // 描画開始時にツールチップを一旦非表示にする（残存バグ防止）
             const tooltip = document.getElementById('global-history-tooltip');
@@ -1909,21 +1889,21 @@
                     item.classList.remove('drag-over');
                 });
 
-                item.addEventListener('drop', async (e) => {
+                item.addEventListener('drop', (e) => {
                     e.preventDefault();
                     item.classList.remove('drag-over');
                     if (dragSrcEl === item) return;
 
                     const draggedId = e.dataTransfer.getData('text/plain');
-                    const history = await getHistory();
+                    const history = getHistory();
                     const fromIdx = history.findIndex(h => h.id === draggedId);
                     const toIdx = history.findIndex(h => h.id === entry.id);
                     if (fromIdx === -1 || toIdx === -1) return;
 
                     const [moved] = history.splice(fromIdx, 1);
                     history.splice(toIdx, 0, moved);
-                    await idbPut(STORE_HISTORY, 'main', history);
-                    await renderHistoryList();
+                    localStorage.setItem('rsidHistory', JSON.stringify(history));
+                    renderHistoryList();
                 });
 
                 item.addEventListener('dragend', () => {
@@ -1959,13 +1939,13 @@
         });
 
         // 新規作成ボタン
-        document.getElementById('history-new-btn').addEventListener('click', async (e) => {
+        document.getElementById('history-new-btn').addEventListener('click', (e) => {
             // UIをクリア
             document.getElementById('clear-btn').click();
 
             // 空の履歴エントリを作成
             currentActiveHistoryId = null;
-            await saveToHistory('新しい家系図', '');
+            saveToHistory('新しい家系図', '');
 
             // テキストエリアにフォーカスして入力待ちに
             const textarea = document.getElementById('rsid-input');
@@ -1974,8 +1954,8 @@
 
         // ページ読込時にマイグレーションと履歴描画を実行
         (async () => {
-            await migrateFromLocalStorage();
-            await renderHistoryList();
+            await migrateFromIndexedDB();
+            renderHistoryList();
         })();
 
         // --- Web Worker初期化（RSID変換はWorkerで実行） ---
@@ -2173,17 +2153,17 @@
         function applyFaceParts(championCardId, statusText) { const championEl = document.getElementById(championCardId); if (!championEl) return; const partAndColorConfig = { "髪色": { selector: '.hair-color-box', folder: '髪色画像' }, "肌色": { selector: '.skin-color-box', folder: '肌色画像' }, "髪": { selector: '.preview-kami-rinkaku', folder: '髪・輪郭画像' }, "眉": { selector: '.preview-mayu', folder: '眉画像' }, "目": { selector: '.preview-me', folder: '目画像' }, "鼻": { selector: '.preview-hana', folder: '鼻画像' }, "頬": { selector: '.preview-hoo', folder: '頬画像' }, "口": { selector: '.preview-kuchi', folder: '口画像' } }; for (const config of Object.values(partAndColorConfig)) { const element = championEl.querySelector(config.selector); if (element) { element.style.backgroundImage = 'none'; } } if (statusText) { for (const [key, config] of Object.entries(partAndColorConfig)) { const regex = new RegExp(`${key}:(\\d+)`); const match = statusText.match(regex); if (match && match[1]) { const partNumber = match[1]; const element = championEl.querySelector(config.selector); if (element) { element.style.backgroundImage = `url('${config.folder}/${partNumber}.png')`; } } } } }
         function applyAppearanceInfo(championCardId, statusText) { const championEl = document.getElementById(championCardId); const paletteContainer = championEl.querySelector('.custom-color-palette'); if (!paletteContainer) return; paletteContainer.innerHTML = ''; if (!statusText) return; const colorMatch = statusText.match(/色:([\s\S]*?)(柄:|髪:|髪色:|肌色:|眉:|目:|鼻:|頬:|口:|$)/); if (colorMatch && colorMatch[1]) { const colorNames = colorMatch[1].trim().split(/\s+/); colorNames.forEach(name => { if (COLOR_MAP[name]) { const item = document.createElement('div'); item.className = 'palette-item'; const box = document.createElement('div'); box.className = 'palette-color-box'; box.style.backgroundColor = COLOR_MAP[name]; const text = document.createTextNode(name); item.appendChild(box); item.appendChild(text); paletteContainer.appendChild(item); } }); } const patternMatch = statusText.match(/柄:([\s\S]*?)(髪:|髪色:|肌色:|眉:|目:|鼻:|頬:|口:|$)/); if (patternMatch && patternMatch[1]) { const patternName = patternMatch[1].trim(); const rank = PATTERN_RANK_MAP[patternName]; if (rank) { const item = document.createElement('div'); item.className = 'palette-item pattern-rank'; item.textContent = `柄ランク:${rank}`; let borderColor = 'var(--primary-accent)'; if (rank === 'D(単色)') { borderColor = '#FFFFFF'; } else if (rank === 'C') { borderColor = '#90EE90'; } else if (rank === 'B') { borderColor = '#ADD8E6'; } else if (rank === 'A') { borderColor = '#F08080'; } item.style.borderColor = borderColor; paletteContainer.appendChild(item); } } }
         // --- 折り畳み状態の保存ヘルパー ---
-        async function saveCollapseStateToHistory() {
+        function saveCollapseStateToHistory() {
             if (!currentActiveHistoryId) return;
             const collapsedNodes = [];
             document.querySelectorAll('[data-collapsed="true"]').forEach(el => {
                 collapsedNodes.push(el.id);
             });
-            const history = await getHistory();
+            const history = getHistory();
             const idx = history.findIndex(h => h.id === currentActiveHistoryId);
             if (idx !== -1) {
                 history[idx].collapsedNodes = collapsedNodes;
-                await idbPut(STORE_HISTORY, 'main', history);
+                localStorage.setItem('rsidHistory', JSON.stringify(history));
             }
         }
 
@@ -2463,7 +2443,7 @@
         }
 
 
-        document.getElementById('generate-btn').addEventListener('click', async () => {
+        document.getElementById('generate-btn').addEventListener('click', () => {
             const input = document.getElementById('rsid-input').value.trim();
             const errorEl = document.getElementById('error-message');
             const container = document.getElementById('bracket-container');
@@ -2644,7 +2624,7 @@
                 // --- 履歴をIndexedDBに保存（履歴からの読み込み時はスキップ） ---
                 if (!isLoadingFromHistory) {
                     const championName = tree.name || '名称不明';
-                    await saveToHistory(championName, input, statusString);
+                    saveToHistory(championName, input, statusString);
                 }
                 isLoadingFromHistory = false;
 
@@ -2730,7 +2710,7 @@
             }, 100);
         });
 
-        document.getElementById('convert-rsid-btn').addEventListener('click', async () => {
+        document.getElementById('convert-rsid-btn').addEventListener('click', () => {
             const errorEl = document.getElementById('error-message');
             const spinner = document.getElementById('spinner');
             const convertBtn = document.getElementById('convert-rsid-btn');
@@ -2774,13 +2754,13 @@
             const thisSessionId = ++conversionSessionId;
 
             // キャッシュ機能の準備
-            let cache = await idbGet(STORE_CACHE, 'main');
+            let cache; try { cache = JSON.parse(localStorage.getItem('rsidConversionCache')); } catch(e){} if(!cache) cache = {};
             if (!cache) cache = {};
 
-            async function saveToCache(updates) {
+            function saveToCache(updates) {
                 Object.assign(cache, updates);
                 try {
-                    await idbPut(STORE_CACHE, 'main', cache);
+                    localStorage.setItem('rsidConversionCache', JSON.stringify(cache));
                 } catch (e) {
                     console.error('キャッシュの保存に失敗しました:', e);
                 }
@@ -2864,7 +2844,7 @@
 
             let progressUpdateCounter = 0;
 
-            rsidWorker.onmessage = async (event) => {
+            rsidWorker.onmessage = (event) => {
                 const data = event.data;
 
                 // 別の家系図に切り替え済みならコールバックを無視
@@ -2897,7 +2877,7 @@
                             }
                         }
                     }
-                    await saveToCache(newCacheEntries);
+                    saveToCache(newCacheEntries);
 
                     // 変換結果を反映
                     applyConvertedResults(convertedNodes);
@@ -3023,7 +3003,7 @@
                 const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
 
                 // JSONエクスポートデータを生成
-                const history = await getHistory();
+                const history = getHistory();
                 const playerIds = getSavedPlayerIds();
                 const exportData = { history, playerIds };
                 const jsonStr = JSON.stringify(exportData, null, 2);
@@ -3233,8 +3213,8 @@
         // =============================================================
         // --- 履歴・プレイヤーIDのJSON形式エクスポート / インポート ---
         // =============================================================
-        document.getElementById('history-export-btn').addEventListener('click', async () => {
-            const history = await getHistory();
+        document.getElementById('history-export-btn').addEventListener('click', () => {
+            const history = getHistory();
             const playerIds = getSavedPlayerIds();
             if (history.length === 0 && playerIds.length === 0) {
                 alert('エクスポートするデータがありません。');
@@ -3265,7 +3245,7 @@
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = async (ev) => {
+            reader.onload = (ev) => {
                 try {
                     const imported = JSON.parse(ev.target.result);
                     let importedHistory = [];
@@ -3312,7 +3292,7 @@
                     }
 
                     // --- 履歴のマージ ---
-                    const existingHistory = await getHistory();
+                    const existingHistory = getHistory();
                     const existingHids = new Set(existingHistory.map(h => h.id));
 
                     let historyAddedCount = 0;
@@ -3328,8 +3308,8 @@
                         existingHistory.splice(MAX_HISTORY);
                     }
 
-                    await idbPut(STORE_HISTORY, 'main', existingHistory);
-                    await renderHistoryList();
+                    localStorage.setItem('rsidHistory', JSON.stringify(existingHistory));
+                    renderHistoryList();
 
                     let msg = 'インポート完了:';
                     if (historyAddedCount > 0) msg += `\n・履歴を ${historyAddedCount} 件追加`;
