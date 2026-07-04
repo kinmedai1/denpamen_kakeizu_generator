@@ -2730,7 +2730,7 @@
             }, 100);
         });
 
-        document.getElementById('convert-rsid-btn').addEventListener('click', () => {
+        document.getElementById('convert-rsid-btn').addEventListener('click', async () => {
             const errorEl = document.getElementById('error-message');
             const spinner = document.getElementById('spinner');
             const convertBtn = document.getElementById('convert-rsid-btn');
@@ -3265,7 +3265,7 @@
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = (ev) => {
+            reader.onload = async (ev) => {
                 try {
                     const imported = JSON.parse(ev.target.result);
                     let importedHistory = [];
